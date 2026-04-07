@@ -1,0 +1,193 @@
+# Cursor Rules — THT myAccount
+
+## Project overview
+
+React 18 + TypeScript 4.7.4 SPA. Mixed Redux codebase: legacy `redux`+`redux-thunk` in `src/actions/` and `src/reducers/`, modern `@reduxjs/toolkit` in `src/store/slices/`. UI: Ant Design 4.24.7 with custom Less theming. React Router v5. Axios via `helpers/ClientApi`.
+
+---
+
+## TypeScript
+
+- **Always use `type`, never `interface`**
+- `strict: true` is enabled — no implicit any
+- Use `FC<Props>` for all components
+- `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` for async state
+- Absolute imports work from `src/` root (tsconfig `baseUrl: "src"`)
+
+---
+
+## Components
+
+- Functional components only — no class components
+- Use `forwardRef` when exposing a DOM ref; always set `displayName`
+- Use `classnames` for conditional class names
+- Styles via CSS Modules (`.module.scss`); inline styles only for truly dynamic CSS properties
+- Props that wrap a native HTML element: extend via intersection type
+
+```typescript
+type Props = React.HTMLAttributes<HTMLDivElement> & {
+  variant?: 'primary' | 'secondary';
+};
+```
+
+**New components** must use this folder structure (existing components without it are old code — don't retrofit):
+
+```
+ComponentName/
+  index.ts                  ← barrel, re-export only
+  ComponentName.tsx
+  ComponentName.types.ts    ← all props/types for this component
+  ComponentName.module.scss
+  components/               ← subcomponents (if needed)
+  hooks/                    ← component-specific hooks (if needed)
+```
+
+**Code order inside a component:**
+
+```
+1. Redux          — useAppDispatch, useAppSelector
+2. Refs & data hooks — useRef, hooks that read/transform data (useEditor, useFiles...)
+3. useState
+4. Plain variables — no memoization
+5. useMemo
+6. Callbacks & handlers
+7. useEffect
+8. Event/effect hooks — hooks whose main purpose is side effects/events (useWindowOnEvent...)
+9. Early returns
+10. return JSX
+```
+
+**Subcomponents:** split when a section has its own local state, is logically self-contained, or is reused. Do not split just because JSX is long — a tightly coupled form can stay as one component.
+
+---
+
+## Redux — new code
+
+All new Redux logic lives in `src/store/slices/<domain>/`:
+
+```
+store/slices/<domain>/
+  index.ts        public API only — all consumers import from here
+  slice.ts        createSlice
+  actions.ts      createAsyncThunk + plain API functions
+  selectors.ts    plain selectors + createSelector
+  types.ts        domain types
+  hooks.ts        if one hook
+  hooks/          if multiple hooks (index.ts + one file per hook)
+  socket.ts       only if WebSocket is needed
+```
+
+After creating a slice, register its reducer in `src/reducers/index.ts`.
+
+- `name` in `createSlice` must exactly match the folder name
+- Async operations → `createAsyncThunk` wrapped in `runWithAccessData`
+- Prevent duplicate requests with `condition` option — not with `busyQuery` flags or `if (loading === 'loaded') return` in hooks
+- For derived state use `createSelector` with stable empty references (`const EMPTY: T[] = []`) defined outside the selector
+- Plain API functions (no Redux loading state needed) — clean async function, caller dispatches follow-up actions
+- Components consume Redux through slice hooks, not raw dispatch
+- Always use typed hooks:
+
+```typescript
+import { useAppSelector, useAppDispatch } from 'helpers/hooks/useAppStore';
+```
+
+Never import `useSelector` or `useDispatch` directly from `react-redux`.
+
+---
+
+## Routing
+
+**Before creating a new route, always ask:**
+1. Permission level — `USER_IS_AUTH` / `USER_IS_ADMIN` / `USER_IS_EDITOR` / `USER_IS_GROUP` / `USER_IS_GUEST` / `USER_IS_COMMON` / `USER_IS_NOT_AUTH`
+2. Does it require billing features (`billingPermission: ServiceCode[]`)?
+3. If yes — `typePermission: 'some'` (at least one) or `'every'` (all required)?
+
+Routes go in `src/pages/routeItems/*RouteItems.ts` (split by permission level). Path constants go in `constants/urlList.ts`. Never add routes directly to `Router.tsx`. `helpers/authWrapper.js` is legacy JS — do not modify.
+
+---
+
+## Redux — legacy zones (do not modify)
+
+| Path                          | Why                                                              |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `src/actions/`                | Old redux-thunk action creators                                  |
+| `src/reducers/`               | Old switch-case reducers                                         |
+| `src/store/configureStore.js` | Old `createStore` bootstrap                                      |
+| `src/selectors/`              | Legacy reselect selectors                                        |
+| `src/interfaces/`             | Mixed old/new types — edit only the type relevant to the task    |
+
+If a task touches these areas, add new logic in `store/slices/` and wire it through custom hooks. Do not refactor legacy files unless explicitly instructed.
+
+---
+
+## API
+
+- Import axios instance: `import ClientApi from 'helpers/ClientApi'`
+- Never import `axios` directly
+- Always wrap requests with `runWithAccessData` from `helpers/forActions` (not `runWithCompanyGroupId` — migrating away from it)
+- Write API URLs inline in the call — do not extract to constants. Easier to find by URL in network tab.
+- Handle errors with `handleError(error)` before `rejectWithValue`
+
+---
+
+## Ant Design
+
+- `import { Button, Form, ... } from 'antd'`
+- Icons: `import { CloseOutlined } from '@ant-design/icons'`
+- Theme customization → Less variables, not inline overrides
+
+---
+
+## Import order
+
+1. React and core libraries
+2. External packages (antd, axios, react-router-dom, etc.)
+3. Redux imports (store, slices, selectors)
+4. Type imports (`type { ... }`)
+5. Internal helpers and hooks
+6. Relative component/util imports
+7. Style imports (last)
+
+---
+
+## Formatting
+
+```
+singleQuote: true
+tabWidth: 2
+trailingComma: 'es5'
+printWidth: 80
+jsxSingleQuote: false
+```
+
+---
+
+## Folder responsibilities
+
+**`templates/`** — reusable presentational components used across multiple features.
+No business logic, no direct Redux access. Receive everything via props.
+
+**`views/`** — feature-level components responsible for a complete piece of functionality.
+Connect to Redux, contain business logic, compose `templates/` components.
+
+**`pages/`** — route-level shells. Wire up views, handle route params, define page layout.
+Minimal logic — mostly composition.
+
+Rule: `templates` → `views` → `pages`. Never the other way around.
+Data flows down, events bubble up.
+
+---
+
+## Do not
+
+- Add class components
+- Import `useSelector`/`useDispatch` directly — use typed wrappers
+- Directly import `axios` — use `ClientApi`
+- Use `runWithCompanyGroupId` — use `runWithAccessData` instead
+- Extract API URLs into constants — write them inline
+- Use `busyQuery` flags or loading guards in hooks for deduplication — use `condition` in `createAsyncThunk`
+- Write new reducers in switch-case style — use `createSlice`
+- Set `name` in `createSlice` to anything other than the folder name
+- Add `interface` — use `type`
+- Add routes directly to `Router.tsx` — use `routeItems/` files
+- Modify legacy `src/actions/`, `src/reducers/`, `src/selectors/`, `src/interfaces/` without explicit instruction
