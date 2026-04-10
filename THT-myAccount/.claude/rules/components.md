@@ -135,6 +135,15 @@ import { Button, Form, Modal } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 ```
 
+### Use built-in Ant Design features first
+
+Before writing custom logic — check if Ant Design already covers it:
+
+| Task | Correct | Incorrect |
+|------|---------|-----------|
+| Dynamic form fields | `Form.List` | `useState` + `.map()` |
+| Validation | `Form` `rules` | Manual checks in `onChange` |
+
 ## Exports
 
 Default export from `ComponentName.tsx`, re-exported through `index.ts`.

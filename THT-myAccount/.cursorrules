@@ -1,5 +1,11 @@
 # Cursor Rules — THT myAccount
 
+## Language
+
+- Code, comments, variable names, text in components (placeholder, label, tooltip) — English only
+
+---
+
 ## Project overview
 
 React 18 + TypeScript 4.7.4 SPA. Mixed Redux codebase: legacy `redux`+`redux-thunk` in `src/actions/` and `src/reducers/`, modern `@reduxjs/toolkit` in `src/store/slices/`. UI: Ant Design 4.24.7 with custom Less theming. React Router v5. Axios via `helpers/ClientApi`.
@@ -26,7 +32,7 @@ React 18 + TypeScript 4.7.4 SPA. Mixed Redux codebase: legacy `redux`+`redux-thu
 
 ```typescript
 type Props = React.HTMLAttributes<HTMLDivElement> & {
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
 };
 ```
 
@@ -88,7 +94,7 @@ After creating a slice, register its reducer in `src/reducers/index.ts`.
 - Always use typed hooks:
 
 ```typescript
-import { useAppSelector, useAppDispatch } from 'helpers/hooks/useAppStore';
+import { useAppSelector, useAppDispatch } from "helpers/hooks/useAppStore";
 ```
 
 Never import `useSelector` or `useDispatch` directly from `react-redux`.
@@ -98,6 +104,7 @@ Never import `useSelector` or `useDispatch` directly from `react-redux`.
 ## Routing
 
 **Before creating a new route, always ask:**
+
 1. Permission level — `USER_IS_AUTH` / `USER_IS_ADMIN` / `USER_IS_EDITOR` / `USER_IS_GROUP` / `USER_IS_GUEST` / `USER_IS_COMMON` / `USER_IS_NOT_AUTH`
 2. Does it require billing features (`billingPermission: ServiceCode[]`)?
 3. If yes — `typePermission: 'some'` (at least one) or `'every'` (all required)?
@@ -108,13 +115,13 @@ Routes go in `src/pages/routeItems/*RouteItems.ts` (split by permission level). 
 
 ## Redux — legacy zones (do not modify)
 
-| Path                          | Why                                                              |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `src/actions/`                | Old redux-thunk action creators                                  |
-| `src/reducers/`               | Old switch-case reducers                                         |
-| `src/store/configureStore.js` | Old `createStore` bootstrap                                      |
-| `src/selectors/`              | Legacy reselect selectors                                        |
-| `src/interfaces/`             | Mixed old/new types — edit only the type relevant to the task    |
+| Path                          | Why                                                           |
+| ----------------------------- | ------------------------------------------------------------- |
+| `src/actions/`                | Old redux-thunk action creators                               |
+| `src/reducers/`               | Old switch-case reducers                                      |
+| `src/store/configureStore.js` | Old `createStore` bootstrap                                   |
+| `src/selectors/`              | Legacy reselect selectors                                     |
+| `src/interfaces/`             | Mixed old/new types — edit only the type relevant to the task |
 
 If a task touches these areas, add new logic in `store/slices/` and wire it through custom hooks. Do not refactor legacy files unless explicitly instructed.
 

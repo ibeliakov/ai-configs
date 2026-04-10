@@ -9,6 +9,10 @@ Read the relevant file before writing code:
 - Adding routes or checking permissions → [Routing & permissions](.claude/rules/routing.md)
 - Using or adding a helper/utility → [Helpers reference](.claude/rules/helpers.md)
 
+## Language
+
+- Code, comments, variable names, text in components (placeholder, label, tooltip) — English only
+
 ## Stack
 
 - **React** 18.2.0 — functional components only, `FC<Props>` typing
