@@ -118,6 +118,8 @@ They are imported by the parent — never the other way around.
 - Use `classnames` (or `cx` from `classnames`) for conditional classes
 - Inline styles only for dynamic CSS values (e.g. `style={{ width: value }}`)
 - Do not override Ant Design styles with inline styles — use Less variables
+- Use `ElementsBox` component instead of HTML elements with `display: flex` (inline or class styles)
+- Every `.module.scss` file must start with `@import 'assets/styles/custom/variables';`
 
 ## Redux
 
