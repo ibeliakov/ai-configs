@@ -41,7 +41,7 @@ Read the relevant file before writing code:
 - Functional components only, no class components
 - `forwardRef` when DOM access is needed — always set `displayName`
 - Props: intersection with HTML attributes when wrapping a DOM element
-- Use `classnames` for conditional class names
+- Use `classnames` for conditional classes
 - Styles: CSS Modules (`.module.scss`), never inline styles except for dynamic values
 
 ## Redux — new code (RTK)

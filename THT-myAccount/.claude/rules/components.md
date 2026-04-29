@@ -115,7 +115,10 @@ They are imported by the parent — never the other way around.
 ## Styles
 
 - CSS Modules (`.module.scss`) for all new components
-- Use `classnames` (or `cx` from `classnames`) for conditional classes
+- Every `.module.scss` file must start with `@import 'assets/styles/custom/variables'`
+- Colors and other design tokens must be taken from `assets/styles/custom/variables`, not hardcoded
+- Use `classnames` for conditional classes
+- For `display: flex` layouts, use the `ElementsBox` component instead of HTML elements with inline or class-based flex styles
 - Inline styles only for dynamic CSS values (e.g. `style={{ width: value }}`)
 - Do not override Ant Design styles with inline styles — use Less variables
 
