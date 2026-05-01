@@ -82,3 +82,5 @@ Only after explicit confirmation, run:
 ```
 git commit -m "{task_number}: {description}"
 ```
+
+**IMPORTANT: Never append `Co-Authored-By` or any other trailer lines to the commit message.**
