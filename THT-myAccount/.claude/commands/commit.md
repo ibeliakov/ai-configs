@@ -34,12 +34,12 @@ Wait for the user's decision before continuing.
 
 ## Step 3 — Ask for task number
 
-Check if `$ARGUMENTS` starts with digits (e.g., `39463` or `39463 some hint`).
+Check if `$ARGUMENTS` starts with digits (e.g., `39463`, `39463/9`, `39463/2,3`).
 
-- If found — extract the number and use it.
+- If found — extract the full task number (including subtask suffix if present) and use it.
 - If not found — ask:
 
-> "What is the task number for this commit?"
+> "What is the task number for this commit? (e.g. `39463`, `39463/9` or `39463/2,3`)"
 
 Wait for the user's response before continuing.
 
@@ -48,7 +48,7 @@ Wait for the user's response before continuing.
 ## Step 4 — Generate commit message
 
 Write a short, imperative English description based on the actual diff:
-- Max 60 characters
+- Max 200 characters
 - Imperative mood ("add", "fix", "update", "remove" — not "added", "fixes")
 - Focus on WHAT changed, not HOW
 - No period at the end
@@ -59,10 +59,12 @@ Combine with the task number:
 {task_number}: {description}
 ```
 
+where `{task_number}` is one of: `39463`, `39463/9`, `39463/2,3`
+
 Examples:
 - `39463: show Indeed job source name`
-- `41022: fix pagination reset on filter change`
-- `38800: add bulk archive action to candidate list`
+- `39463/9: fix pagination reset on filter change`
+- `38800/2,3: add bulk archive action to candidate list`
 
 ---
 
