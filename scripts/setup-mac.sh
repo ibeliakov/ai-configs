@@ -61,6 +61,10 @@ echo ""
 [[ -f "$SOURCE_DIR/.cursorrules" ]] && \
   link_file "$SOURCE_DIR/.cursorrules" "$PROJECT_PATH/.cursorrules"
 
+# .claude/settings.json — MCP server config
+[[ -f "$SOURCE_DIR/.claude/settings.json" ]] && \
+  link_file "$SOURCE_DIR/.claude/settings.json" "$PROJECT_PATH/.claude/settings.json"
+
 # .claude/rules/*.md — individual files
 if [[ -d "$SOURCE_DIR/.claude/rules" ]]; then
   for f in "$SOURCE_DIR/.claude/rules"/*.md; do

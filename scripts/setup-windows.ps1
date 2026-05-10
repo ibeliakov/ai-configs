@@ -71,6 +71,10 @@ if (Test-Path $f) { Link-File $f (Join-Path $ProjectDir "CLAUDE.md") }
 $f = Join-Path $SourceDir ".cursorrules"
 if (Test-Path $f) { Link-File $f (Join-Path $ProjectDir ".cursorrules") }
 
+# .claude/settings.json — MCP server config
+$f = Join-Path $SourceDir ".claude\settings.json"
+if (Test-Path $f) { Link-File $f (Join-Path $ProjectDir ".claude\settings.json") }
+
 # .claude/rules/*.md — individual files
 $rulesDir = Join-Path $SourceDir ".claude\rules"
 if (Test-Path $rulesDir -PathType Container) {

@@ -15,6 +15,7 @@ ai-configs/
     ├── CLAUDE.md
     ├── .cursorrules
     └── .claude/
+        ├── settings.json     # MCP server config
         ├── rules/
         │   ├── components.md
         │   └── ...
@@ -29,6 +30,7 @@ After running a setup script, the project directory looks like this:
 ├── CLAUDE.md           -> ai-configs/my-project/CLAUDE.md
 ├── .cursorrules        -> ai-configs/my-project/.cursorrules
 └── .claude/
+    ├── settings.json      -> ai-configs/my-project/.claude/settings.json
     ├── rules/
     │   ├── components.md  -> ai-configs/my-project/.claude/rules/components.md
     │   └── ...
@@ -70,7 +72,7 @@ No Developer Mode or admin rights required — uses NTFS HardLinks.
    ```
    ai-configs/my-new-project/
    ```
-2. Add the files you want to share (`CLAUDE.md`, `.cursorrules`, `.claude/rules/*.md`, `.claude/commands/*.md`).
+2. Add the files you want to share (`CLAUDE.md`, `.cursorrules`, `.claude/settings.json`, `.claude/rules/*.md`, `.claude/commands/*.md`).
 3. Commit and push.
 4. On each machine, run the setup script pointing at the local project directory.
 
