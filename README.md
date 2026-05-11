@@ -11,6 +11,11 @@ ai-configs/
 │   ├── setup-mac.sh          # symlinks for macOS
 │   └── setup-windows.ps1     # hardlinks for Windows
 │
+├── automation/               # Node.js scripts for AI-powered tooling
+│   └── src/
+│       └── pr-reviewer/
+│           └── index.ts
+│
 ├── common/                   # shared commands available in every project
 │   └── .claude/
 │       └── commands/
@@ -100,7 +105,7 @@ On Windows, re-run the setup script after pulling new files to create hardlinks 
 
 ## Automation
 
-Node.js automation scripts live in `automation/`.
+Node.js automation scripts live in `automation/`. Scripts use `@anthropic-ai/sdk` for Claude API integrations.
 
 ### Setup
 
@@ -109,26 +114,13 @@ cd automation
 npm install
 ```
 
-### Running scripts
-
-```bash
-# Run a TypeScript script directly
-npx tsx src/your-script.ts
-```
-
-Scripts use `@anthropic-ai/sdk` for Claude API integrations.
-
 ### PR Reviewer
 
 Runs an AI-powered code review on a git diff between two branches and saves the result as a Markdown file.
 
 **Setup**
 
-Copy `.env.example` to `.env` and fill in your key:
-
-```bash
-cp automation/.env.example automation/.env
-```
+Create `automation/.env` with your API key:
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
@@ -153,4 +145,4 @@ npm run review -- "D:\THT\THT-myAccount" beta-stage main
 2. Runs `git diff <base>...<compare>` in the project directory
 3. Sends the diff to Claude API with a structured review prompt
 4. Prints the review to the console
-5. Saves the review to `<project-path>/reviews/review-<branch>-<timestamp>.md`
+5. Saves the review to `<project-path>/.reviews/review-<branch>-<timestamp>.md`
