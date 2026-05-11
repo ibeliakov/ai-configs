@@ -1,12 +1,8 @@
 {
   "mcpServers": {
-    "filesystem": {
+    "playwright": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "./src"
-      ]
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
