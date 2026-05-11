@@ -49,9 +49,8 @@ function Link-File {
   }
 
   if (Test-Path $Dst) {
-    Write-Host "  skip  (exists) $Dst"
-    return
-  }
+    Remove-Item $Dst -Force
+}
 
   New-Item -ItemType HardLink -Path $Dst -Target $Src | Out-Null
   Write-Host "  linked $Dst"
