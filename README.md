@@ -11,6 +11,11 @@ ai-configs/
 │   ├── setup-mac.sh          # symlinks for macOS
 │   └── setup-windows.ps1     # hardlinks for Windows
 │
+├── common/                   # shared commands available in every project
+│   └── .claude/
+│       └── commands/
+│           └── commit.md
+│
 └── <project-name>/           # one folder per project
     ├── CLAUDE.md
     ├── .cursorrules
@@ -35,10 +40,12 @@ After running a setup script, the project directory looks like this:
     │   ├── components.md  -> ai-configs/my-project/.claude/rules/components.md
     │   └── ...
     └── commands/
+        ├── commit.md      -> ai-configs/common/.claude/commands/commit.md
         └── custom_icon.md -> ai-configs/my-project/.claude/commands/custom_icon.md
 ```
 
-Each file is linked individually so local project rules can coexist alongside shared ones.
+Each file is linked individually so local project rules can coexist alongside shared ones.  
+Project-specific commands take precedence over common ones if names collide.
 
 ## Usage
 
@@ -75,6 +82,16 @@ No Developer Mode or admin rights required — uses NTFS HardLinks.
 2. Add the files you want to share (`CLAUDE.md`, `.cursorrules`, `.claude/settings.json`, `.claude/rules/*.md`, `.claude/commands/*.md`).
 3. Commit and push.
 4. On each machine, run the setup script pointing at the local project directory.
+
+## Adding a shared command
+
+To make a command available in **every** project without copying it:
+
+1. Place the `.md` file in `common/.claude/commands/`.
+2. Commit and push.
+3. Re-run the setup script in each project to create the link.
+
+Project-specific commands (in `<project>/.claude/commands/`) override a common command with the same filename.
 
 ## Workflow: editing rules
 

@@ -34,8 +34,13 @@ link_file() {
   mkdir -p "$(dirname "$dst")"
 
   if [[ -L "$dst" ]]; then
-    echo "  skip  (already linked) $dst"
-    return
+    if [[ ! -e "$dst" ]]; then
+      rm "$dst"
+      echo "  relink (broken symlink) $dst"
+    else
+      echo "  skip  (already linked) $dst"
+      return
+    fi
   fi
 
   if [[ -e "$dst" ]]; then
@@ -73,7 +78,16 @@ if [[ -d "$SOURCE_DIR/.claude/rules" ]]; then
   done
 fi
 
-# .claude/commands/*.md — individual files
+# common/.claude/commands/*.md — shared commands (linked first; project-specific overrides below)
+COMMON_DIR="$REPO_ROOT/common"
+if [[ -d "$COMMON_DIR/.claude/commands" ]]; then
+  for f in "$COMMON_DIR/.claude/commands"/*.md; do
+    [[ -f "$f" ]] || continue
+    link_file "$f" "$PROJECT_PATH/.claude/commands/$(basename "$f")"
+  done
+fi
+
+# .claude/commands/*.md — individual files (overrides common if same name)
 if [[ -d "$SOURCE_DIR/.claude/commands" ]]; then
   for f in "$SOURCE_DIR/.claude/commands"/*.md; do
     [[ -f "$f" ]] || continue

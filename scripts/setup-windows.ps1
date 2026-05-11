@@ -82,7 +82,15 @@ if (Test-Path $rulesDir -PathType Container) {
   }
 }
 
-# .claude/commands/*.md — individual files
+# common/.claude/commands/*.md — shared commands (linked first; project-specific overrides below)
+$commonCommandsDir = Join-Path $RepoRoot "common\.claude\commands"
+if (Test-Path $commonCommandsDir -PathType Container) {
+  Get-ChildItem (Join-Path $commonCommandsDir "*.md") | ForEach-Object {
+    Link-File $_.FullName (Join-Path $ProjectDir ".claude\commands\$($_.Name)")
+  }
+}
+
+# .claude/commands/*.md — individual files (overrides common if same name)
 $commandsDir = Join-Path $SourceDir ".claude\commands"
 if (Test-Path $commandsDir -PathType Container) {
   Get-ChildItem (Join-Path $commandsDir "*.md") | ForEach-Object {
