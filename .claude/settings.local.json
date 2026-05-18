@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"d:\\\\THT\\\\THT-myAccount\" | head -50)",
+      "Read(//d/THT/THT-myAccount/**)",
+      "Bash(ls -la \"d:\\\\THT\\\\THT-management\")",
+      "Read(//d/THT/THT-management/**)",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-myAccount\\\\.claude\\\\rules\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\.claude\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\store\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\helpers\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\pages\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\store\\\\slices\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\helpers\\\\api\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\hooks\")",
+      "Bash(dir \"d:\\\\THT\\\\THT-management\\\\src\\\\constants\")",
+      "Bash(mkdir \"d:\\\\ai-configs\\\\THT-management\\\\.claude\")",
+      "Bash(mkdir \"d:\\\\ai-configs\\\\THT-management\\\\.claude\\\\rules\")",
+      "Bash(cp \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\components.md\" \"d:\\\\ai-configs\\\\THT-management\\\\.claude\\\\rules\\\\components.md\")",
+      "Bash(cp \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\helpers.md\" \"d:\\\\ai-configs\\\\THT-management\\\\.claude\\\\rules\\\\helpers.md\")",
+      "Bash(cp \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\routing.md\" \"d:\\\\ai-configs\\\\THT-management\\\\.claude\\\\rules\\\\routing.md\")",
+      "Bash(rm \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\components.md\")",
+      "Bash(rm \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\helpers.md\")",
+      "Bash(rm \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\\\\routing.md\")",
+      "Bash(rmdir \"d:\\\\THT\\\\THT-management\\\\.claude\\\\rules\")"
+    ],
+    "additionalDirectories": [
+      "d:\\THT\\THT-management"
+    ]
+  }
+}

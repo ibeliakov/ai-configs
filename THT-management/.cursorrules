@@ -1,0 +1,193 @@
+# Cursor Rules — THT Management
+
+## Language
+
+- Code, comments, variable names, text in components (placeholder, label, tooltip) — English only
+
+---
+
+## Project overview
+
+React 18 + TypeScript 3.7.5 SPA. Legacy Redux codebase: `redux` + `redux-thunk`, switch-case reducers throughout (including the `store/slices/` folder — no `@reduxjs/toolkit`). UI: Ant Design 3.26.5. React Router v5. Axios via `helpers/ClientApi` (JS file).
+
+---
+
+## TypeScript
+
+- **Always use `type`, never `interface`**
+- `strict: true` is enabled — no implicit any
+- Use `FC<Props>` for all components
+- `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` for async state
+- Absolute imports work from `src/` root (tsconfig `baseUrl: "src"`)
+- tsconfig target is `es5` — do not rely on runtime features not covered by polyfills
+
+---
+
+## Components
+
+- Functional components only — no class components
+- Use `forwardRef` when exposing a DOM ref; always set `displayName`
+- Use `classnames` for conditional class names
+- Styles via CSS Modules (`.module.scss`); inline styles only for truly dynamic CSS properties
+- Props that wrap a native HTML element: extend via intersection type
+
+```typescript
+type Props = React.HTMLAttributes<HTMLDivElement> & {
+  variant?: 'primary' | 'secondary';
+};
+```
+
+**New components** must use this folder structure (existing components without it are old code — don't retrofit):
+
+```
+ComponentName/
+  index.ts                  ← barrel, re-export only
+  ComponentName.tsx
+  ComponentName.types.ts    ← all props/types for this component
+  ComponentName.module.scss
+  components/               ← subcomponents (if needed)
+  hooks/                    ← component-specific hooks (if needed)
+```
+
+**Code order inside a component:**
+
+```
+1. Redux          — useAppDispatch, useAppSelector
+2. Refs & data hooks — useRef, hooks that read/transform data
+3. useState
+4. Plain variables — no memoization
+5. useMemo
+6. Callbacks & handlers
+7. useEffect
+8. Event/effect hooks — hooks whose main purpose is side effects/events
+9. Early returns
+10. return JSX
+```
+
+**Subcomponents:** split when a section has its own local state, is logically self-contained, or is reused. Do not split just because JSX is long.
+
+---
+
+## Redux — legacy only
+
+There is **no `@reduxjs/toolkit`** in this project. All Redux code uses the legacy pattern:
+
+```
+src/
+  actions/         action creators (redux-thunk)
+  reducers/        switch-case reducers
+  store/slices/    domain reducers — also switch-case, NOT RTK slices
+```
+
+When writing new Redux code, follow the existing switch-case reducer + action constants pattern.
+
+Do not use `createSlice`, `createAsyncThunk`, or any RTK APIs.
+
+---
+
+## Redux — hooks
+
+Always use typed hooks — never raw `useSelector`/`useDispatch`:
+
+```typescript
+import { useAppSelector } from 'hooks/useAppSelector';
+import { useAppDispatch } from 'hooks/useAppDispatch';
+```
+
+---
+
+## Routing
+
+Routes are defined in a single file: `src/pages/routeItems.js`.
+
+The file exports a `ROUTER_ITEMS` object keyed by permission level:
+
+```javascript
+const ROUTER_ITEMS = {
+  [USER_IS_NOT_AUTH]: [ ... ],
+  [USER_IS_AUTH]: [ ... ],
+};
+```
+
+To add a route:
+1. Import the component in `routeItems.js`
+2. Add a path constant to `constants/urlPath.ts`
+3. Add the route entry under the correct permission key
+4. Do **not** add routes directly to `Router.js`
+
+Permission constants: `USER_IS_AUTH`, `USER_IS_NOT_AUTH` — from `constants/index`.
+
+`helpers/authWrapper.js` is legacy JS — do not modify.
+
+---
+
+## API
+
+- Import the Axios instance: `import ClientApi from 'helpers/ClientApi'`
+- `ClientApi` is a **JavaScript** file — do not add TypeScript to it
+- Never import `axios` directly
+- Handle errors with `handleError(error)` from `helpers/forActions`
+
+---
+
+## Ant Design v3
+
+- `import { Button, Form, Table, Icon } from 'antd'`
+- Icons: use `Icon` component from antd — `<Icon type="close" />`
+- **Do not** use `@ant-design/icons` — that package belongs to Ant Design v4+
+- Forms: use `Form.create()` HOC pattern (v3 style with `form` prop injection)
+- Theme customization → Less variables, not inline overrides
+
+---
+
+## Import order
+
+1. React and core libraries
+2. External packages (antd, axios, react-router-dom, etc.)
+3. Redux imports (actions, reducers, selectors)
+4. Type imports (`type { ... }`)
+5. Internal helpers and hooks
+6. Relative component/util imports
+7. Style imports (last)
+
+---
+
+## Formatting
+
+```
+singleQuote: true
+tabWidth: 2
+trailingComma: 'es5'
+printWidth: 80
+jsxSingleQuote: false
+```
+
+---
+
+## Folder responsibilities
+
+**`templates/`** — reusable presentational components used across multiple features.
+No business logic, no direct Redux access. Receive everything via props.
+
+**`views/`** — feature-level components responsible for a complete piece of functionality.
+Connect to Redux, contain business logic, compose `templates/` components.
+
+**`pages/`** — route-level shells. Wire up views, handle route params, define page layout.
+Minimal logic — mostly composition.
+
+Rule: `templates` → `views` → `pages`. Never the other way around.
+Data flows down, events bubble up.
+
+---
+
+## Do not
+
+- Add class components
+- Import `useSelector`/`useDispatch` directly — use typed wrappers from `src/hooks/`
+- Directly import `axios` — use `ClientApi`
+- Use `@ant-design/icons` — use `Icon` from `antd` (v3)
+- Use `createSlice`, `createAsyncThunk`, or any `@reduxjs/toolkit` API
+- Add `interface` — use `type`
+- Add routes directly to `Router.js` — use `routeItems.js`
+- Modify `helpers/authWrapper.js` or `helpers/Utils.js` without explicit instruction
+- Write TypeScript in `helpers/ClientApi.js` — it is and must stay a JS file
