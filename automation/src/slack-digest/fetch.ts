@@ -1,7 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import * as dotenv from "dotenv";
 import * as path from "path";
-import type { FetchResult, RawChannel, RawMessage } from "./types.js";
+import type { FetchResult, RawMessage } from "./types.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
@@ -9,6 +9,7 @@ const TOKEN = process.env.SLACK_USER_TOKEN;
 const WORKSPACE_DOMAIN = process.env.SLACK_WORKSPACE_DOMAIN;
 const DEFAULT_CHANNELS = (process.env.SLACK_DEFAULT_CHANNELS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const PM_USERNAME = process.env.SLACK_PM_USERNAME ?? "";
+const TZ_OFFSET = process.env.SLACK_TZ_OFFSET ?? "+02:00";
 
 if (!TOKEN) {
   process.stderr.write("Error: SLACK_USER_TOKEN is not set in .env\n");
@@ -21,6 +22,31 @@ if (!WORKSPACE_DOMAIN) {
 }
 
 const slack = new WebClient(TOKEN);
+
+async function callWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      if (e.code === "slack_webapi_rate_limited") {
+        const wait = (e.retryAfter ?? 1) * 1000;
+        process.stderr.write(`Rate limited, retrying in ${e.retryAfter ?? 1}s...\n`);
+        await new Promise((r) => setTimeout(r, wait));
+      } else if (i === retries - 1) {
+        throw e;
+      }
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
+function isBot(msg: any): boolean {
+  return msg.subtype === "bot_message" || !!msg.bot_id;
+}
+
+function isChannelId(s: string): boolean {
+  return /^[CDGW][A-Z0-9]{6,}$/i.test(s);
+}
 
 function parseArgs(): { oldest: number; latest: number; channels: string[] } {
   const args = process.argv.slice(2);
@@ -44,16 +70,14 @@ function parseArgs(): { oldest: number; latest: number; channels: string[] } {
       oldest = latest - seconds;
     } else if (arg === "--date" && args[i + 1]) {
       const val = args[++i];
-      // DD.MM.YYYY
       const match = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
       if (!match) {
         process.stderr.write(`Error: invalid --date value "${val}". Use DD.MM.YYYY\n`);
         process.exit(1);
       }
       const [, dd, mm, yyyy] = match;
-      // Use local Ukraine time (UTC+2), convert to UTC for Slack API
-      const startLocal = new Date(`${yyyy}-${mm}-${dd}T00:00:00+02:00`);
-      const endLocal = new Date(`${yyyy}-${mm}-${dd}T23:59:59+02:00`);
+      const startLocal = new Date(`${yyyy}-${mm}-${dd}T00:00:00${TZ_OFFSET}`);
+      const endLocal = new Date(`${yyyy}-${mm}-${dd}T23:59:59${TZ_OFFSET}`);
       oldest = Math.floor(startLocal.getTime() / 1000);
       latest = Math.floor(endLocal.getTime() / 1000);
     } else if (arg === "--channels" && args[i + 1]) {
@@ -73,12 +97,14 @@ async function resolveChannelIds(names: string[]): Promise<Map<string, string>> 
   let cursor: string | undefined;
 
   do {
-    const resp = await slack.conversations.list({
-      types: "public_channel,private_channel",
-      limit: 200,
-      cursor,
-      exclude_archived: true,
-    });
+    const resp = await callWithRetry(() =>
+      slack.conversations.list({
+        types: "public_channel,private_channel",
+        limit: 200,
+        cursor,
+        exclude_archived: true,
+      })
+    );
 
     for (const ch of resp.channels ?? []) {
       if (ch.name && ch.id && names.includes(ch.name)) {
@@ -93,22 +119,26 @@ async function resolveChannelIds(names: string[]): Promise<Map<string, string>> 
 }
 
 async function resolveUserDM(username: string): Promise<{ id: string; name: string } | null> {
+  const usernameLower = username.toLowerCase().trim();
   let cursor: string | undefined;
 
   do {
-    const resp = await slack.users.list({ limit: 200, cursor });
+    const resp = await callWithRetry(() => slack.users.list({ limit: 200, cursor }));
 
     const user = (resp.members ?? []).find((m) => {
       if (m.deleted || m.is_bot) return false;
-      return (
-        m.name === username ||
-        m.profile?.display_name === username ||
-        m.profile?.real_name === username
-      );
+      const candidates = [
+        m.name,
+        m.profile?.display_name,
+        m.profile?.display_name_normalized,
+        m.profile?.real_name,
+        m.profile?.real_name_normalized,
+      ].filter(Boolean).map((s) => s!.toLowerCase().trim());
+      return candidates.includes(usernameLower);
     });
 
     if (user?.id) {
-      const dm = await slack.conversations.open({ users: user.id });
+      const dm = await callWithRetry(() => slack.conversations.open({ users: user.id! }));
       const channelId = dm.channel?.id;
       if (channelId) {
         return { id: channelId, name: `DM:${username}` };
@@ -130,38 +160,50 @@ async function fetchMessages(
   let cursor: string | undefined;
 
   do {
-    const resp = await slack.conversations.history({
-      channel: channelId,
-      oldest: String(oldest),
-      latest: String(latest),
-      limit: 200,
-      cursor,
-    });
+    const resp = await callWithRetry(() =>
+      slack.conversations.history({
+        channel: channelId,
+        oldest: String(oldest),
+        latest: String(latest),
+        limit: 200,
+        cursor,
+      })
+    );
 
     for (const msg of resp.messages ?? []) {
-      // Skip bot messages with no meaningful text
-      if (msg.bot_id && !msg.text?.trim()) continue;
+      if (isBot(msg) && !msg.text?.trim()) continue;
 
       const userName = await resolveUserName(msg.user);
       const thread: RawMessage[] = [];
 
       if (msg.reply_count && msg.reply_count > 0 && msg.ts) {
-        const replies = await slack.conversations.replies({
-          channel: channelId,
-          ts: msg.ts,
-          limit: 50,
-        });
+        let replyCursor: string | undefined;
+        do {
+          const replies = await callWithRetry(() =>
+            slack.conversations.replies({
+              channel: channelId,
+              ts: msg.ts!,
+              cursor: replyCursor,
+              limit: 200,
+            })
+          );
 
-        for (const reply of (replies.messages ?? []).slice(1)) {
-          if (reply.bot_id && !reply.text?.trim()) continue;
-          thread.push({
-            ts: reply.ts ?? "",
-            user_name: await resolveUserName(reply.user),
-            text: reply.text ?? "",
-            thread: [],
-            reactions: [],
-          });
-        }
+          for (const reply of (replies.messages ?? []).slice(replyCursor ? 0 : 1)) {
+            if (isBot(reply) && !reply.text?.trim()) continue;
+            thread.push({
+              ts: reply.ts ?? "",
+              user_name: await resolveUserName(reply.user),
+              text: reply.text ?? "",
+              thread: [],
+              reactions: [],
+              files: ((reply as any).files ?? [])
+                .filter((f: any) => f.permalink)
+                .map((f: any) => ({ name: f.name ?? f.title ?? "file", permalink: f.permalink })),
+            });
+          }
+
+          replyCursor = replies.response_metadata?.next_cursor;
+        } while (replyCursor);
       }
 
       messages.push({
@@ -173,6 +215,9 @@ async function fetchMessages(
           name: r.name ?? "",
           count: r.count ?? 0,
         })),
+        files: ((msg as any).files ?? [])
+          .filter((f: any) => f.permalink)
+          .map((f: any) => ({ name: f.name ?? f.title ?? "file", permalink: f.permalink })),
       });
     }
 
@@ -189,7 +234,7 @@ async function resolveUserName(userId: string | undefined): Promise<string> {
   if (userCache.has(userId)) return userCache.get(userId)!;
 
   try {
-    const resp = await slack.users.info({ user: userId });
+    const resp = await callWithRetry(() => slack.users.info({ user: userId }));
     const name =
       resp.user?.profile?.display_name ||
       resp.user?.profile?.real_name ||
@@ -211,30 +256,48 @@ async function main() {
     channels: [],
   };
 
-  // Resolve regular channels
-  const channelMap = await resolveChannelIds(channelNames);
-  for (const name of channelNames) {
-    if (name.startsWith("DM:") || name === PM_USERNAME) continue;
+  const directIds = channelNames.filter(isChannelId);
+  const nameList  = channelNames.filter((n) => !isChannelId(n) && !n.startsWith("DM:") && n !== PM_USERNAME);
+
+  const channelMap = await resolveChannelIds(nameList);
+
+  for (const name of nameList) {
     const id = channelMap.get(name);
     if (!id) {
       process.stderr.write(`Warning: channel "${name}" not found, skipping\n`);
       continue;
     }
+    process.stderr.write(`Fetching #${name}...\n`);
     const messages = await fetchMessages(id, oldest, latest);
-    const channel: RawChannel = { id, name, messages };
-    result.channels.push(channel);
+    process.stderr.write(`  → ${messages.length} messages\n`);
+    result.channels.push({ id, name, messages });
   }
 
-  // Resolve PM DM (always included unless --channels overrides)
+  for (const id of directIds) {
+    process.stderr.write(`Fetching ${id}...\n`);
+    const messages = await fetchMessages(id, oldest, latest);
+    process.stderr.write(`  → ${messages.length} messages\n`);
+    result.channels.push({ id, name: id, messages });
+  }
+
   if (PM_USERNAME && customChannels.length === 0) {
-    const dm = await resolveUserDM(PM_USERNAME);
-    if (dm) {
-      const messages = await fetchMessages(dm.id, oldest, latest);
-      result.channels.push({ id: dm.id, name: dm.name, messages });
-    } else {
-      process.stderr.write(`Warning: PM user "${PM_USERNAME}" not found, skipping DM\n`);
+    try {
+      process.stderr.write(`Fetching DM:${PM_USERNAME}...\n`);
+      const dm = await resolveUserDM(PM_USERNAME);
+      if (dm) {
+        const messages = await fetchMessages(dm.id, oldest, latest);
+        process.stderr.write(`  → ${messages.length} messages\n`);
+        result.channels.push({ id: dm.id, name: dm.name, messages });
+      } else {
+        process.stderr.write(`Warning: PM user "${PM_USERNAME}" not found, skipping DM\n`);
+      }
+    } catch (e: any) {
+      process.stderr.write(`Warning: DM fetch failed (${e.message}), skipping. Check im:history / im:read scopes in Slack token.\n`);
     }
   }
+
+  const totalMessages = result.channels.reduce((sum, ch) => sum + ch.messages.length, 0);
+  process.stderr.write(`Done: ${result.channels.length} channels, ${totalMessages} messages total\n`);
 
   process.stdout.write(JSON.stringify(result, null, 2));
 }
