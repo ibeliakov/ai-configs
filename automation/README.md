@@ -78,4 +78,5 @@ channels:history  channels:read
 groups:history    groups:read
 im:history        im:read
 users:read        reactions:read
+files:read
 ```
