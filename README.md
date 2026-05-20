@@ -88,6 +88,50 @@ No Developer Mode or admin rights required — uses NTFS HardLinks.
 3. Commit and push.
 4. On each machine, run the setup script pointing at the local project directory.
 
+## QA commands setup
+
+The shared commands `/qa-feature` and `/qa-diff` require two environment variables that point to machine-specific directories. Since paths differ per machine, set them in the **project-level** `settings.local.json` (not committed to git).
+
+Create or edit `.claude/settings.local.json` in the root of the project where you run QA commands (e.g. `D:\THT\.claude\settings.local.json`):
+
+```json
+{
+  "env": {
+    "QA_TESTCASES_DIR": "/absolute/path/to/qa-testcases",
+    "QA_REPORTS_DIR": "/absolute/path/to/qa-reports"
+  }
+}
+```
+
+| Variable | Purpose | Git-tracked |
+|----------|---------|-------------|
+| `QA_TESTCASES_DIR` | Shared folder with `.md` test case files | Yes — commit this folder |
+| `QA_REPORTS_DIR` | Folder where reports and screenshots are saved | No |
+
+**macOS example** (`~/.../THT/.claude/settings.local.json`):
+```json
+{
+  "env": {
+    "QA_TESTCASES_DIR": "/Users/name/THT/qa-testcases",
+    "QA_REPORTS_DIR": "/Users/name/THT/qa-reports"
+  }
+}
+```
+
+**Windows example** (`D:\THT\.claude\settings.local.json`):
+```json
+{
+  "env": {
+    "QA_TESTCASES_DIR": "D:\\THT\\qa-testcases",
+    "QA_REPORTS_DIR": "D:\\THT\\qa-reports"
+  }
+}
+```
+
+> If either variable is missing, the command will stop and remind you to configure it.
+
+---
+
 ## Adding a shared command
 
 To make a command available in **every** project without copying it:

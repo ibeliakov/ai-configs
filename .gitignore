@@ -12,5 +12,6 @@ desktop.ini
 *.swo
 .idea/
 .vscode/
+/.claude/
 
 .env
