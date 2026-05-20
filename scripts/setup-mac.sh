@@ -66,6 +66,10 @@ echo ""
 [[ -f "$SOURCE_DIR/.cursorrules" ]] && \
   link_file "$SOURCE_DIR/.cursorrules" "$PROJECT_PATH/.cursorrules"
 
+# .mcp.json — Playwright MCP
+[[ -f "$SOURCE_DIR/.mcp.json" ]] && \
+  link_file "$SOURCE_DIR/.mcp.json" "$PROJECT_PATH/.mcp.json"
+
 # .claude/settings.json — MCP server config
 [[ -f "$SOURCE_DIR/.claude/settings.json" ]] && \
   link_file "$SOURCE_DIR/.claude/settings.json" "$PROJECT_PATH/.claude/settings.json"
