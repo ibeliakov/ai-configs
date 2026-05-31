@@ -99,5 +99,25 @@ if [[ -d "$SOURCE_DIR/.claude/commands" ]]; then
   done
 fi
 
+# .claude/settings.local.json — inject AI_CONFIGS_DIR
+SETTINGS_LOCAL="$PROJECT_PATH/.claude/settings.local.json"
+mkdir -p "$(dirname "$SETTINGS_LOCAL")"
+
+python3 - "$SETTINGS_LOCAL" "$REPO_ROOT" <<'EOF'
+import sys, json, os
+path, repo_root = sys.argv[1], sys.argv[2]
+data = {}
+if os.path.exists(path):
+    with open(path) as f:
+        data = json.load(f)
+data.setdefault('env', {})['AI_CONFIGS_DIR'] = repo_root
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+EOF
+
+echo "  updated $SETTINGS_LOCAL"
+echo "     AI_CONFIGS_DIR=$REPO_ROOT"
+
 echo ""
 echo "Done."

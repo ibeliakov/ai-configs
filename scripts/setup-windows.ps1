@@ -102,5 +102,28 @@ if (Test-Path $commandsDir -PathType Container) {
   }
 }
 
+# .claude/settings.local.json — inject AI_CONFIGS_DIR
+$settingsLocalPath = Join-Path $ProjectDir ".claude\settings.local.json"
+$settingsLocalDir  = Split-Path -Parent $settingsLocalPath
+if (-not (Test-Path $settingsLocalDir)) {
+  New-Item -ItemType Directory -Path $settingsLocalDir -Force | Out-Null
+}
+
+if (Test-Path $settingsLocalPath) {
+  $json = Get-Content $settingsLocalPath -Raw | ConvertFrom-Json
+} else {
+  $json = [PSCustomObject]@{}
+}
+
+if (-not $json.PSObject.Properties['env']) {
+  $json | Add-Member -MemberType NoteProperty -Name 'env' -Value ([PSCustomObject]@{})
+}
+$json.env | Add-Member -MemberType NoteProperty -Name 'AI_CONFIGS_DIR' `
+  -Value ($RepoRoot -replace '\\', '/') -Force
+
+$json | ConvertTo-Json -Depth 10 | Set-Content $settingsLocalPath -Encoding utf8
+Write-Host "  updated $settingsLocalPath"
+Write-Host "     AI_CONFIGS_DIR=$($RepoRoot -replace '\\', '/')"
+
 Write-Host ""
 Write-Host "Done."

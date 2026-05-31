@@ -1,8 +1,17 @@
 import { WebClient } from "@slack/web-api";
 import * as dotenv from "dotenv";
+import * as fs from "fs";
 import * as path from "path";
-import type { FetchResult, RawMessage } from "./types.js";
+import type { FetchResult, RawFile, RawMessage } from "./types.js";
 
+// Load Slack credentials from automation .env
+const automationEnvPath = process.env.AI_CONFIGS_DIR
+  ? path.join(process.env.AI_CONFIGS_DIR, "automation", ".env")
+  : path.resolve(process.cwd(), ".env"); // fallback: called with cd to automation/
+dotenv.config({ path: automationEnvPath });
+
+// Load project-specific settings (SLACK_DIGEST_OUTPUT_DIR etc.) from project .env
+// Won't override vars already loaded above (SLACK_USER_TOKEN, SLACK_WORKSPACE_DOMAIN etc.)
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const TOKEN = process.env.SLACK_USER_TOKEN;
@@ -22,6 +31,8 @@ if (!WORKSPACE_DOMAIN) {
 }
 
 const slack = new WebClient(TOKEN);
+
+const IMAGE_EXTS = /\.(png|jpg|jpeg|gif|webp)$/i;
 
 async function callWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
   for (let i = 0; i < retries; i++) {
@@ -48,11 +59,72 @@ function isChannelId(s: string): boolean {
   return /^[CDGW][A-Z0-9]{6,}$/i.test(s);
 }
 
-function parseArgs(): { oldest: number; latest: number; channels: string[] } {
+function formatTimestamp(unixSecs: number, tzOffset: string): string {
+  const offsetMatch = tzOffset.match(/([+-])(\d{2}):(\d{2})/);
+  const offsetMins = offsetMatch
+    ? (offsetMatch[1] === "+" ? 1 : -1) * (parseInt(offsetMatch[2]) * 60 + parseInt(offsetMatch[3]))
+    : 0;
+  const d = new Date((unixSecs + offsetMins * 60) * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}_${pad(d.getUTCHours())}-${pad(d.getUTCMinutes())}`;
+}
+
+function msgLink(channelId: string, ts: string): string {
+  return `https://${WORKSPACE_DOMAIN}.slack.com/archives/${channelId}/p${ts.replace(".", "")}`;
+}
+
+async function downloadImage(
+  urlPrivate: string,
+  filename: string,
+  channelId: string,
+  msgTs: string,
+  imagesDir: string
+): Promise<string | undefined> {
+  try {
+    fs.mkdirSync(imagesDir, { recursive: true });
+    const safeName = `${channelId}-${msgTs.replace(".", "")}-${filename}`;
+    const destPath = path.join(imagesDir, safeName);
+    const res = await fetch(urlPrivate, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    if (!res.ok) {
+      process.stderr.write(`  Warning: failed to download ${filename} (HTTP ${res.status})\n`);
+      return undefined;
+    }
+    const buffer = await res.arrayBuffer();
+    fs.writeFileSync(destPath, Buffer.from(buffer));
+    return destPath;
+  } catch (e: any) {
+    process.stderr.write(`  Warning: failed to download ${filename}: ${e.message}\n`);
+    return undefined;
+  }
+}
+
+async function buildFiles(rawFiles: any[], channelId: string, msgTs: string, imagesDir: string | undefined): Promise<RawFile[]> {
+  return Promise.all(
+    rawFiles
+      .filter((f: any) => f.permalink)
+      .map(async (f: any): Promise<RawFile> => {
+        const name = f.name ?? f.title ?? "file";
+        let local_path: string | undefined;
+        if (imagesDir && IMAGE_EXTS.test(name) && f.url_private_download) {
+          local_path = await downloadImage(f.url_private_download, name, channelId, msgTs, imagesDir);
+        }
+        return local_path
+          ? { name, permalink: f.permalink, local_path }
+          : { name, permalink: f.permalink };
+      })
+  );
+}
+
+function parseArgs(): { oldest: number; latest: number; channels: string[]; outputDir: string } {
   const args = process.argv.slice(2);
   let oldest: number | undefined;
   let latest = Math.floor(Date.now() / 1000);
   let channelNames: string[] = [];
+  let outputDir = process.env.SLACK_DIGEST_OUTPUT_DIR
+    ? path.resolve(process.cwd(), process.env.SLACK_DIGEST_OUTPUT_DIR)
+    : process.cwd();
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -82,14 +154,16 @@ function parseArgs(): { oldest: number; latest: number; channels: string[] } {
       latest = Math.floor(endLocal.getTime() / 1000);
     } else if (arg === "--channels" && args[i + 1]) {
       channelNames = args[++i].split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (arg === "--output-dir" && args[i + 1]) {
+      outputDir = args[++i];
     }
   }
 
   if (!oldest) {
-    oldest = latest - 86400; // default: 24h
+    oldest = latest - 86400;
   }
 
-  return { oldest, latest, channels: channelNames };
+  return { oldest, latest, channels: channelNames, outputDir };
 }
 
 async function resolveChannelIds(names: string[]): Promise<Map<string, string>> {
@@ -154,7 +228,8 @@ async function resolveUserDM(username: string): Promise<{ id: string; name: stri
 async function fetchMessages(
   channelId: string,
   oldest: number,
-  latest: number
+  latest: number,
+  imagesDir: string | undefined
 ): Promise<RawMessage[]> {
   const messages: RawMessage[] = [];
   let cursor: string | undefined;
@@ -190,15 +265,15 @@ async function fetchMessages(
 
           for (const reply of (replies.messages ?? []).slice(replyCursor ? 0 : 1)) {
             if (isBot(reply) && !reply.text?.trim()) continue;
+            const replyTs = reply.ts ?? "";
             thread.push({
-              ts: reply.ts ?? "",
+              ts: replyTs,
+              message_link: msgLink(channelId, replyTs),
               user_name: await resolveUserName(reply.user),
               text: reply.text ?? "",
               thread: [],
               reactions: [],
-              files: ((reply as any).files ?? [])
-                .filter((f: any) => f.permalink)
-                .map((f: any) => ({ name: f.name ?? f.title ?? "file", permalink: f.permalink })),
+              files: await buildFiles((reply as any).files ?? [], channelId, replyTs, imagesDir),
             });
           }
 
@@ -206,8 +281,10 @@ async function fetchMessages(
         } while (replyCursor);
       }
 
+      const msgTs = msg.ts ?? "";
       messages.push({
-        ts: msg.ts ?? "",
+        ts: msgTs,
+        message_link: msgLink(channelId, msgTs),
         user_name: userName,
         text: msg.text ?? "",
         thread,
@@ -215,9 +292,7 @@ async function fetchMessages(
           name: r.name ?? "",
           count: r.count ?? 0,
         })),
-        files: ((msg as any).files ?? [])
-          .filter((f: any) => f.permalink)
-          .map((f: any) => ({ name: f.name ?? f.title ?? "file", permalink: f.permalink })),
+        files: await buildFiles((msg as any).files ?? [], channelId, msgTs, imagesDir),
       });
     }
 
@@ -248,10 +323,17 @@ async function resolveUserName(userId: string | undefined): Promise<string> {
 }
 
 async function main() {
-  const { oldest, latest, channels: customChannels } = parseArgs();
+  const { oldest, latest, channels: customChannels, outputDir } = parseArgs();
+
+  const fromStr = formatTimestamp(oldest, TZ_OFFSET);
+  const toStr = formatTimestamp(latest, TZ_OFFSET);
+  const digestName = `slack-digest-${fromStr}--${toStr}`;
+  const imagesDir = path.join(outputDir, digestName);
 
   const channelNames = customChannels.length > 0 ? customChannels : DEFAULT_CHANNELS;
   const result: FetchResult = {
+    workspace_domain: WORKSPACE_DOMAIN!,
+    digest_name: digestName,
     period: { from: oldest, to: latest },
     channels: [],
   };
@@ -268,14 +350,14 @@ async function main() {
       continue;
     }
     process.stderr.write(`Fetching #${name}...\n`);
-    const messages = await fetchMessages(id, oldest, latest);
+    const messages = await fetchMessages(id, oldest, latest, imagesDir);
     process.stderr.write(`  → ${messages.length} messages\n`);
     result.channels.push({ id, name, messages });
   }
 
   for (const id of directIds) {
     process.stderr.write(`Fetching ${id}...\n`);
-    const messages = await fetchMessages(id, oldest, latest);
+    const messages = await fetchMessages(id, oldest, latest, imagesDir);
     process.stderr.write(`  → ${messages.length} messages\n`);
     result.channels.push({ id, name: id, messages });
   }
@@ -285,7 +367,7 @@ async function main() {
       process.stderr.write(`Fetching DM:${PM_USERNAME}...\n`);
       const dm = await resolveUserDM(PM_USERNAME);
       if (dm) {
-        const messages = await fetchMessages(dm.id, oldest, latest);
+        const messages = await fetchMessages(dm.id, oldest, latest, imagesDir);
         process.stderr.write(`  → ${messages.length} messages\n`);
         result.channels.push({ id: dm.id, name: dm.name, messages });
       } else {
