@@ -1,0 +1,216 @@
+# THT-mobile-app — Cursor Rules
+
+## Project overview
+
+React Native recruitment SaaS app (candidate management, job posts, real-time messaging).
+
+**Stack**: React Native 0.81.5, Expo 54, TypeScript 5.9.2, Redux Toolkit 2.10.1, Ant Design React Native 5.4.3, Expo Router 6, Axios 1.13.2
+
+## Language
+
+All code, comments, variable names, and UI text — English only.
+
+## TypeScript conventions
+
+- Always use `type`, never `interface`
+- Explicit return types on all hooks and complex functions
+- `FC<Props>` for all components
+- `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` for async state
+
+## Component structure
+
+### Folder layout
+
+```
+ComponentName/
+  index.ts                  ← re-export only
+  ComponentName.tsx
+  ComponentName.types.ts
+  ComponentName.styles.ts   ← StyleSheet.create(...)
+  components/               ← subcomponents (if needed)
+  hooks/                    ← hooks specific to this component (if needed)
+```
+
+### Code order inside a component
+
+```
+1. Redux          — useAppDispatch, useAppSelector + selectors
+2. Refs & data hooks — useRef, hooks that read/transform data
+3. useState
+4. Plain variables — no memoization
+5. useMemo
+6. Callbacks & handlers — useCallback
+7. useEffect
+8. Event/effect hooks — hooks with side effects or subscriptions
+9. Early returns
+10. return JSX
+```
+
+### Props typing
+
+```typescript
+// ComponentName.types.ts
+type Props = {
+  id: number;
+  onClose: () => void;
+  variant?: 'primary' | 'secondary';
+};
+
+export type { Props };
+```
+
+When wrapping a native element, extend via intersection:
+```typescript
+type Props = ViewProps & {
+  variant?: 'primary' | 'secondary';
+};
+```
+
+### Styles
+
+- `StyleSheet.create()` for all styles — never inline except for dynamic values
+- Styles in `ComponentName.styles.ts`, imported as `styles`
+- Conditional styles: `[styles.base, isActive && styles.active].filter(Boolean)`
+- Colors and spacing from theme tokens, not hardcoded
+
+### Redux in components
+
+Always use typed hooks — never raw `useSelector`/`useDispatch`:
+```typescript
+import { useAppSelector, useAppDispatch } from 'src/store/hooks';
+```
+
+### Ant Design React Native
+
+```typescript
+import { Button, Modal, Toast } from '@ant-design/react-native';
+```
+
+Check if Ant Design covers the need before writing custom logic.
+
+## Redux slice structure
+
+```
+store/slices/<domain>/
+  index.ts          ← public API, only re-exports
+  slice.ts          ← createSlice
+  actions.ts        ← createAsyncThunk + runWithAccessData
+  selectors.ts      ← plain selectors + createSelector
+  types.ts          ← domain types (LoadStatus for async state)
+  hooks.ts          ← hooks folder if multiple hooks
+```
+
+### actions.ts pattern
+
+```typescript
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { handleError } from 'helpers/errorHandler';
+import * as domainApi from 'api/domainApi';
+
+export const getItems = createAsyncThunk(
+  'domain/getItems',
+  async (params: Params, { rejectWithValue }) => {
+    const { runWithAccessData } = await import('helpers/accessData');
+    return runWithAccessData(async (accessData) => {
+      try {
+        const response = await domainApi.getList(params, accessData);
+        return response.data.data;
+      } catch (error) {
+        handleError(error);
+        return rejectWithValue(error);
+      }
+    });
+  }
+);
+```
+
+Rules:
+- Always use `runWithAccessData` — lazy import to avoid circular deps
+- Write API URLs inline inside API functions — no URL constants
+- Always call `handleError(error)` before `rejectWithValue`
+- Use `condition` option to prevent duplicate requests
+
+### Preventing duplicate requests
+
+```typescript
+export const getItems = createAsyncThunk(
+  'domain/getItems',
+  async (params, { rejectWithValue }) => { /* ... */ },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as RootState;
+      return state.domain.loading === 'not loaded';
+    },
+  }
+);
+```
+
+### selectors.ts
+
+```typescript
+const EMPTY_ITEMS: Item[] = [];
+
+export const selectItems = (state: RootState): Item[] => state.domain.items;
+
+export const selectActiveItems = createSelector(
+  selectItems,
+  (items) => items.filter((i) => i.active) || EMPTY_ITEMS
+);
+```
+
+### index.ts — public API
+
+All consumers import only from the slice folder:
+```typescript
+// ✅
+import { useItems, getItems, selectItems } from 'store/slices/domain';
+// ❌
+import { selectItems } from 'store/slices/domain/selectors';
+```
+
+## API layer (`src/api/`)
+
+- Axios instance: `src/api/axios.ts` — always through it, never `import axios`
+- Files organized by domain: `candidateApi.ts`, `jobPostApi.ts`, `authApi.ts`
+- Each function is a **pure async function**: receives `accessData: AccessData` as explicit parameter
+- `runWithAccessData` is injected from `actions.ts` — **not inside API functions**
+
+```typescript
+// src/api/candidateApi.ts
+export const getList = (
+  params: ListParams,
+  accessData: AccessData,
+) =>
+  api.get<{ data: Candidate[] }>('/api/v2/myaccount/candidates', {
+    params: { ...accessData, ...params },
+  });
+```
+
+## Helpers (`src/helpers/`)
+
+Key utilities — check before writing new code:
+
+- `accessData.ts` → `runWithAccessData` — injects company_id/company_group_id
+- `errorHandler.ts` → `handleError` — centralized error handling + Toast
+- `storage.ts` → AsyncStorage helpers with JSON serialization
+- `tokenManager.ts` → OAuth token refresh
+- `dateFormat.ts` → date formatting via dayjs
+- `eventManager/` → custom event bus
+
+## Path aliases
+
+```
+@components → src/components
+@screens    → src/screens
+@icons      → src/components/icons
+```
+
+## Do not
+
+- Import `axios` directly — always use `src/api/axios.ts`
+- Use `interface` — always `type`
+- Use inline styles (except dynamic values)
+- Use raw `useSelector`/`useDispatch` — always typed app hooks
+- Put business logic in `app/` route files — that goes in `src/screens/`
+- Call `runWithAccessData` inside `src/api/` functions — only in `actions.ts`
+- Hardcode colors — use theme tokens
