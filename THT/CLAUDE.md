@@ -11,6 +11,9 @@
 | `THT-applicant/` | Апліканська частина, SSR | `localhost:3080` | Next.js 13 + Redux legacy + AntD 3 |
 | `THT-mobile-app/` | Мобільний застосунок | — (Expo, запуск `expo start`) | React Native 0.81 + Expo 54 + RTK |
 | `THT-html-reports/` | Переглядач звітів (статика + Node сервер) | `localhost:8080` | Node.js server |
+| `THT-dataAccessAPI/` | **Бекенд** — REST API для всіх фронтів (myAccount, management, applicant) | `localhost:8080` | Java 21 + Spring Boot 3.4.1 + PostgreSQL + RabbitMQ |
+
+> **Бекенд** знаходиться в папці `THT-dataAccessAPI/` (абс. шлях: `D:\THT\THT-dataAccessAPI`). Якщо треба знати, що в проекті — дивись там, починаючи з `THT-dataAccessAPI/CLAUDE.MD`.
 
 ## Shared directories
 
