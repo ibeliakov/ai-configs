@@ -7,14 +7,16 @@ Centralized Claude Code and Cursor IDE configs for THT projects. Rules, commands
 ```
 ai-configs/
 ├── common/
+│   ├── .mcp.windows.json     # shared MCP servers, Windows (e.g. shortcut)
+│   ├── .mcp.mac.json         # shared MCP servers, macOS
 │   └── .claude/
 │       └── commands/         # shared commands available in every project
 │
 ├── <project-name>/           # one folder per project
 │   ├── CLAUDE.md
 │   ├── .cursorrules
-│   ├── .mcp.json             # macOS MCP config
-│   ├── .mcp.windows.json     # Windows MCP config (linked as .mcp.json)
+│   ├── .mcp.windows.json     # project MCP source, Windows
+│   ├── .mcp.mac.json         # project MCP source, macOS
 │   └── .claude/
 │       ├── settings.json
 │       ├── rules/            # detailed rule files referenced from CLAUDE.md
@@ -43,6 +45,18 @@ ai-configs/
 ```
 
 After `git pull` that adds new files — re-run the setup script to create links for those files.
+
+## MCP config (generated, not linked)
+
+Claude Code reads MCP servers only from a project's `.mcp.json` (the `mcpServers` key in
+`settings.json`/`settings.local.json` is **silently ignored**). So the setup script does **not**
+hardlink/symlink `.mcp.json` — it **generates** it by merging the OS-specific source
+(`<project>/.mcp.windows.json` or `<project>/.mcp.mac.json`) with the shared `common/` one.
+Project servers win on key conflict; `common/` adds shared servers like `shortcut`.
+
+Shortcut secrets live in `automation/.env` (gitignored): `SHORTCUT_API_TOKEN` is resolved into
+the generated (gitignored) `.mcp.json`, and `SHORTCUT_MEMBER_ID` is written into the project's
+`settings.local.json` `env`. Neither ever enters git. See README → "Shortcut MCP setup".
 
 ## Adding a new project
 

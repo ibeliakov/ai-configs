@@ -16,7 +16,9 @@ ai-configs/
 │       └── pr-reviewer/
 │           └── index.ts
 │
-├── common/                   # shared commands available in every project
+├── common/                   # shared, linked into every project
+│   ├── .mcp.windows.json     # shared MCP servers, Windows (e.g. shortcut)
+│   ├── .mcp.mac.json         # shared MCP servers, macOS
 │   └── .claude/
 │       └── commands/
 │           └── commit.md
@@ -24,8 +26,10 @@ ai-configs/
 └── <project-name>/           # one folder per project
     ├── CLAUDE.md
     ├── .cursorrules
+    ├── .mcp.windows.json     # project MCP servers, Windows (merged with common)
+    ├── .mcp.mac.json         # project MCP servers, macOS (merged with common)
     └── .claude/
-        ├── settings.json     # MCP server config
+        ├── settings.json
         ├── rules/
         │   ├── components.md
         │   └── ...
@@ -33,14 +37,22 @@ ai-configs/
             └── custom_icon.md
 ```
 
+> **MCP config:** Claude Code reads MCP servers only from a project's `.mcp.json` (the
+> `mcpServers` key in `settings.json` is ignored). The setup script **generates** each project's
+> `.mcp.json` by merging the OS-specific source (`.mcp.windows.json` / `.mcp.mac.json`) with the
+> shared `common/` one — so a server like `shortcut` is available in every project without
+> duplicating it. See [Shortcut MCP setup](#shortcut-mcp-setup).
+
 After running a setup script, the project directory looks like this:
 
 ```
 ~/work/my-project/
 ├── CLAUDE.md           -> ai-configs/my-project/CLAUDE.md
 ├── .cursorrules        -> ai-configs/my-project/.cursorrules
+├── .mcp.json              (generated: project MCP servers + common shortcut; gitignored)
 └── .claude/
     ├── settings.json      -> ai-configs/my-project/.claude/settings.json
+    ├── settings.local.json   (generated/merged: AI_CONFIGS_DIR, SHORTCUT_MEMBER_ID; gitignored)
     ├── rules/
     │   ├── components.md  -> ai-configs/my-project/.claude/rules/components.md
     │   └── ...
@@ -129,6 +141,40 @@ Create or edit `.claude/settings.local.json` in the root of the project where yo
 ```
 
 > If either variable is missing, the command will stop and remind you to configure it.
+
+---
+
+## Shortcut MCP setup
+
+The shared commands `/shortcut-story` and `/shortcut-epic` use the official Shortcut MCP server
+(`@shortcut/mcp`). The server is declared once in `common/.mcp.windows.json` / `common/.mcp.mac.json`
+and merged into every project's generated `.mcp.json` by the setup script.
+
+Secrets are **not** stored in git. Put them in `automation/.env` (gitignored — see
+`automation/.env.example`):
+
+```env
+# Generate at https://app.shortcut.com/settings/account/api-tokens
+SHORTCUT_API_TOKEN=...
+# Shortcut member ID assigned to Frontend subtasks
+SHORTCUT_MEMBER_ID=...
+```
+
+When you run a setup script, it:
+
+1. Resolves `SHORTCUT_API_TOKEN` from `automation/.env` into the project's generated `.mcp.json`
+   (which is gitignored in the target project, so the token never enters git). If the token is
+   missing, a `${SHORTCUT_API_TOKEN}` placeholder is left and a warning is printed.
+2. Writes `SHORTCUT_MEMBER_ID` into the project's `.claude/settings.local.json` `env` block, so
+   the commands can read it via `$SHORTCUT_MEMBER_ID` (`$env:SHORTCUT_MEMBER_ID` on Windows).
+
+After editing `automation/.env`, re-run the setup script for the changes to take effect, then
+restart Claude Code and check the server with `/mcp`.
+
+| Variable | Purpose | Git-tracked |
+|----------|---------|-------------|
+| `SHORTCUT_API_TOKEN` | Auth for the Shortcut MCP server | No — `automation/.env` only |
+| `SHORTCUT_MEMBER_ID` | Assignee for Frontend subtasks | No — `automation/.env` only |
 
 ---
 
