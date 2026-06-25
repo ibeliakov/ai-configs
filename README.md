@@ -52,7 +52,7 @@ After running a setup script, the project directory looks like this:
 ├── .mcp.json              (generated: project MCP servers + common shortcut; gitignored)
 └── .claude/
     ├── settings.json      -> ai-configs/my-project/.claude/settings.json
-    ├── settings.local.json   (generated/merged: AI_CONFIGS_DIR, SHORTCUT_MEMBER_ID; gitignored)
+    ├── settings.local.json   (generated/merged: AI_CONFIGS_DIR, SHORTCUT_API_TOKEN, SHORTCUT_MEMBER_ID; gitignored)
     ├── rules/
     │   ├── components.md  -> ai-configs/my-project/.claude/rules/components.md
     │   └── ...
@@ -146,34 +146,39 @@ Create or edit `.claude/settings.local.json` in the root of the project where yo
 
 ## Shortcut MCP setup
 
-The shared commands `/shortcut-story` and `/shortcut-epic` use the official Shortcut MCP server
-(`@shortcut/mcp`). The server is declared once in `common/.mcp.windows.json` / `common/.mcp.mac.json`
-and merged into every project's generated `.mcp.json` by the setup script.
+The shared commands `/shortcut-story` and `/shortcut-epic` use the **official hosted Shortcut MCP
+server** (`https://mcp.shortcut.com/mcp`). The server is declared once in `common/.mcp.windows.json` /
+`common/.mcp.mac.json` and merged into every project's generated `.mcp.json` by the setup script.
 
-Secrets are **not** stored in git. Put them in `automation/.env` (gitignored — see
-`automation/.env.example`):
+The hosted server authenticates via **OAuth** — no API token is needed for MCP. On first use the
+client opens a browser to authorize with your Shortcut account; check the connection with `/mcp`.
+
+> The self-hosted `@shortcut/mcp` (npx) server is deprecated. This config has been migrated to the
+> hosted server, so that deprecation warning no longer appears.
+
+`SHORTCUT_API_TOKEN` is still used — but **not** for MCP auth. The `/shortcut-*` commands use it to
+download story/epic **attachments** (images, PDF, Word) via the Shortcut REST API, because the MCP
+server does not return attached files. Secrets are **not** stored in git. Put them in `automation/.env`
+(gitignored — see `automation/.env.example`):
 
 ```env
-# Generate at https://app.shortcut.com/settings/account/api-tokens
+# Generate at https://app.shortcut.com/settings/account/api-tokens — used by /shortcut-* to fetch attachments
 SHORTCUT_API_TOKEN=...
 # Shortcut member ID assigned to Frontend subtasks
 SHORTCUT_MEMBER_ID=...
 ```
 
-When you run a setup script, it:
-
-1. Resolves `SHORTCUT_API_TOKEN` from `automation/.env` into the project's generated `.mcp.json`
-   (which is gitignored in the target project, so the token never enters git). If the token is
-   missing, a `${SHORTCUT_API_TOKEN}` placeholder is left and a warning is printed.
-2. Writes `SHORTCUT_MEMBER_ID` into the project's `.claude/settings.local.json` `env` block, so
-   the commands can read it via `$SHORTCUT_MEMBER_ID` (`$env:SHORTCUT_MEMBER_ID` on Windows).
+When you run a setup script, it writes both `SHORTCUT_API_TOKEN` and `SHORTCUT_MEMBER_ID` from
+`automation/.env` into the project's `.claude/settings.local.json` `env` block (gitignored, never in
+git), so the commands can read them via `$SHORTCUT_API_TOKEN` / `$SHORTCUT_MEMBER_ID`
+(`$env:...` on Windows).
 
 After editing `automation/.env`, re-run the setup script for the changes to take effect, then
 restart Claude Code and check the server with `/mcp`.
 
 | Variable | Purpose | Git-tracked |
 |----------|---------|-------------|
-| `SHORTCUT_API_TOKEN` | Auth for the Shortcut MCP server | No — `automation/.env` only |
+| `SHORTCUT_API_TOKEN` | Used by `/shortcut-*` to fetch attachments via REST (MCP itself uses OAuth) | No — `automation/.env` only |
 | `SHORTCUT_MEMBER_ID` | Assignee for Frontend subtasks | No — `automation/.env` only |
 
 ---

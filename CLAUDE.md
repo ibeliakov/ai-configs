@@ -54,9 +54,12 @@ hardlink/symlink `.mcp.json` — it **generates** it by merging the OS-specific 
 (`<project>/.mcp.windows.json` or `<project>/.mcp.mac.json`) with the shared `common/` one.
 Project servers win on key conflict; `common/` adds shared servers like `shortcut`.
 
-Shortcut secrets live in `automation/.env` (gitignored): `SHORTCUT_API_TOKEN` is resolved into
-the generated (gitignored) `.mcp.json`, and `SHORTCUT_MEMBER_ID` is written into the project's
-`settings.local.json` `env`. Neither ever enters git. See README → "Shortcut MCP setup".
+The `shortcut` server is the official **hosted** server (`https://mcp.shortcut.com/mcp`, HTTP +
+OAuth) — no API token is embedded in `.mcp.json`. Shortcut secrets live in `automation/.env`
+(gitignored): the setup script writes both `SHORTCUT_API_TOKEN` and `SHORTCUT_MEMBER_ID` into the
+project's `settings.local.json` `env`. The token is **not** for MCP auth (that's OAuth) — the
+`/shortcut-*` commands use it to fetch story/epic attachments via the Shortcut REST API. Neither
+secret ever enters git. See README → "Shortcut MCP setup".
 
 ## Adding a new project
 
