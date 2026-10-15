@@ -43,6 +43,7 @@ Date formatting and timezone handling:
 | `getTimePeriod(from, to)` | Human-readable date range |
 | `getActiveDays(start, end)` | Days between activation and archival |
 | `disabledPastDateAndCurrent()` | AntD DatePicker disabledDate helper |
+| `getTodayInUsCentral()` | Today's calendar date in `America/Chicago` as a local moment — every Indeed campaign date is US Central |
 
 ### `time.ts`
 UTC↔local conversion for scheduling:
@@ -81,7 +82,7 @@ import { emailRules, passwordRules, phoneRules, urlWithProtocolRules } from 'hel
 <Form.Item name="phone" rules={phoneRules()}>
 ```
 
-Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names.
+Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`).
 
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
 
@@ -106,6 +107,19 @@ Job post utilities:
 |----------|---------|
 | `checkCanPostedJob(description)` | Returns true if description is long enough to post (>100 chars) |
 | `hasExplicitPayInDescription(description)` | Detects salary/rate mentions in job description HTML |
+
+### `indeedSponsorship.ts`
+Indeed sponsored-campaign display and the restart form (sc-45559):
+
+| Function | Purpose |
+|----------|---------|
+| `formatIndeedBudget({budget_onetime_limit, budget_monthly_limit})` | `$150 total budget` / `$300 monthly budget`, `null` without a budget |
+| `formatIndeedPeriod({start_date, end_date, duration_days?})` | `Sep 12, 2026 – Oct 12, 2026 (30 days)` / `Since …, no end date` |
+| `getIndeedReasonCopy(reason)` | Plain-language copy of a `non_spending_reasons` entry (`INDEED_REASON_COPY`), falls back to Indeed's description |
+| `getRedReasons(reasons)` / `getRestartableReason(reasons)` | Reasons that stop spending (`INDEED_RED_REASONS`) / the first one a restart fixes (`INDEED_RESTARTABLE_REASONS`, never a pause) |
+| `toIndeedRestartFormValues(values, type)` / `buildIndeedRestartBody(...)` / `getIndeedRestartEndDateKey(values)` | `restart-defaults` → form values → `POST …/campaign/restart` body; a target end date stays a target |
+
+Any surface quoting an Indeed budget or duration renders `templates/IndeedDisclaimer` (`variant="compact"` in tight spots).
 
 ### `wrapShortCodes.ts`
 Token system for email/SMS templates:
