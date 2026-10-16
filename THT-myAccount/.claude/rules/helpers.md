@@ -51,8 +51,22 @@ UTC↔local conversion for scheduling:
 | Function | Purpose |
 |----------|---------|
 | `timeToMinutes(time)` | "HH:MM" → minutes from midnight |
+| `minutesToTimeValue(minutes)` | Minutes from midnight → "HH:MM:SS" (inverse of `timeToMinutes`) |
 | `utcSlotToLocal(slot, tz)` | UTC time slot → local timezone |
 | `convertFreeRangesToTimezone(ranges, tz)` | Convert availability ranges, handles cross-midnight splits |
+
+### `availability.ts`
+Weekly availability (`DayAvailabilityAPI[]`) shared by General settings, scheduling links and templates:
+
+| Export | Purpose |
+|--------|---------|
+| `DAYS_OF_WEEK`, `DAY_LABELS`, `DAY_NAMES` | Mon→Sun order, short ("Mon") and full ("Monday") labels |
+| `DEFAULT_TIME_SLOT`, `INITIAL_AVAILABILITY` | 09:00–16:30, Mon–Fri enabled |
+| `formatTimeSlot(slot)` | `"9:00 AM–4:30 PM"` for display |
+| `normalizeAvailability(days)` | Always 7 days, missing `time_slots` → `[]`, slots sorted — run before sending to the API |
+| `stripTimeSlotIds(days)` | Drop slot ids before PUT |
+
+The editor UI lives in `views/AvailabilityEditor` (mount inside any AntD `Form`, `name` prop = field path); validation rules are `getTimeSlotStartRules` / `timeSlotEndRules` / `timeSlotOverlapRule` in `rulesFields.ts`.
 
 ### `regexp.ts`
 All project regex patterns — import from here, do not duplicate:
@@ -100,6 +114,19 @@ getStringLocalStorage('key')         // raw string value
 
 Never call `localStorage.getItem` / `JSON.parse` directly — use these helpers.
 
+### `candidates.ts`
+Candidate utilities:
+
+| Function | Purpose |
+|----------|---------|
+| `sortByPriority(a, b)` | Sort emails/phones so the primary one comes first |
+| `getSmsConsentBlock(status, isA2PRegistrationFinished, isTwilioSuppressed?)` | Why SMS is blocked for a candidate, or `null` when texting is allowed. Twilio suppression wins over every status; `OPTED_OUT` always blocks; `DECLINED` blocks but allows recording consent (`canRequestConsent`); `PENDING` blocks only for A2P-registered companies |
+| `getSmsConsentBlockedCandidates(candidates, isA2PRegistrationFinished)` | Same rule applied to a list — used by bulk SMS/sequence widgets |
+| `getSmsSendRefusal(error)` | Maps a **400** from the SMS send endpoint with a consent token in `data.message` (`twilio_suppressed`, `opted_out`, `sms_declined`, `sms_consent_pending`) to the same `SmsConsentBlock` as `getSmsConsentBlock`; `null` for any other error. Use it instead of showing the raw token |
+
+Single-candidate components should use the `useSmsConsentBlock` hook instead of calling
+`getSmsConsentBlock` directly — it reads the A2P registration state from Redux.
+
 ### `jobPost.ts`
 Job post utilities:
 
@@ -107,6 +134,11 @@ Job post utilities:
 |----------|---------|
 | `checkCanPostedJob(description)` | Returns true if description is long enough to post (>100 chars) |
 | `hasExplicitPayInDescription(description)` | Detects salary/rate mentions in job description HTML |
+| `isUserAssignedToJobPost(managers, userId)` | True when the user is in the job's managers list |
+| `buildDefaultNotifications(types, userIds)` | `JobPostNotification[]` for the given type codes, every type with the same recipients |
+| `getNotificationRecipients(notifications, type)` / `setNotificationRecipients(notifications, type, userIds)` / `removeNotificationType(notifications, type)` | Read, replace or drop one type's recipients in the job's `notifications` |
+| `addRecipientToNotifications(notifications, userId)` / `removeRecipientFromNotifications(notifications, userId)` | Add a manager to every enabled type / remove them from all types (keeps the form in sync with the Managers section) |
+| `sanitizeNotifications(notifications, managerIds)` | Keep only recipients that are managers — the back end rejects others with 400 |
 
 ### `indeedSponsorship.ts`
 Indeed sponsored-campaign display and the restart form (sc-45559):
@@ -120,6 +152,28 @@ Indeed sponsored-campaign display and the restart form (sc-45559):
 | `toIndeedRestartFormValues(values, type)` / `buildIndeedRestartBody(...)` / `getIndeedRestartEndDateKey(values)` | `restart-defaults` → form values → `POST …/campaign/restart` body; a target end date stays a target |
 
 Any surface quoting an Indeed budget or duration renders `templates/IndeedDisclaimer` (`variant="compact"` in tight spots).
+
+### `jobBoardRepublication.ts`
+Job-board republication after unpause (sc-43517):
+
+| Export | Purpose |
+|--------|---------|
+| `getJobBoardRepublicationBoards(items, pendingSince, publishedCodes, now)` | Per-board UI state `pending` / `stuck` / `failed`; drops `published` entries and boards already live (a manual Publish leaves the entry `failed`) |
+| `getJobBoardRepublicationErrorText(message, boardName)` | Known backend messages as they are, `Required field is empty` explained, raw provider errors → generic retry text |
+| `getJobBoardRepublicationRetryKey(jobId, code)` | Key of the `retrying` map in the `jobBoardRepublication` slice |
+| `JOB_BOARD_REPUBLICATION_POLL_MS` / `…_STUCK_ON_PAGE_MS` / `…_STUCK_SINCE_UPDATE_MS` | 5 s polling; `pending` counts as stuck after 60 s on the page, or 2 min since `updated_at` when the backend sends it |
+
+Components use `useJobBoardRepublication(jobId, { enabled, onSettled })` from `store/slices/jobBoardRepublication`, not these helpers directly.
+
+### `mobileAuth.ts`
+OAuth hand-off from myAccount to the Discovered mobile app (`/access-to/:instance` with a mobile `state`):
+
+| Function | Purpose |
+|----------|---------|
+| `isMobileAuthState(state, allowExpoGo = IS_DEV)` | `state` is the app deep link (`discovered://…`); `exp://` (Expo Go) is accepted only on dev/stage |
+| `buildMobileAuthRedirect(state, params)` | Appends `params` to the deep link with `?` or `&` |
+
+The page only forwards `code` (or the provider `error`) to the app — the app calls `/api/auth/login/social` itself so the refresh token is bound to its own `DeviceID`.
 
 ### `wrapShortCodes.ts`
 Token system for email/SMS templates:
@@ -141,7 +195,8 @@ getLabelPermissionCompany(isAll, count)         // "All Companies" / "2 Companie
 Small React/DOM helpers:
 ```typescript
 getPopupContainer   // AntD Select prop — keeps dropdown inside parent, prevents z-index issues
-stopPropagation     // e.stopPropagation() + e.preventDefault()
+stopPropagationOnly // e.stopPropagation() only — use on wrappers around AntD Modal/portals: preventDefault there breaks checkboxes inside
+stopPropagation     // stopPropagationOnly + e.preventDefault()
 preventDefaultDrag  // drag event stopper
 ```
 
@@ -176,6 +231,8 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 | `useEditor` | `hooks/useEditor.ts` | Quill editor ref + helper |
 | `useFile` / `useFiles` | `hooks/useFile.ts` | File upload handling |
 | `useWindowOnEvent` | `hooks/useWindowOnEvent.ts` | `window.addEventListener` with cleanup |
+| `useSmsConsentBlock` | `hooks/useSmsConsentBlock.ts` | SMS consent block for one candidate (`null` = texting allowed) |
+| `useNotificationTypes` | `hooks/useNotificationTypes.ts` | Job post notification type catalogue from static data, filtered by the company's services (`{ types, loaded }`) |
 
 For Redux-specific hooks, also check `store/slices/<domain>/hooks/` — slice-local hooks live there.
 

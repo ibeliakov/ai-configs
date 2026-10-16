@@ -5,6 +5,7 @@
 Read the relevant file before writing code:
 
 - Working on any component → [Component structure & code order](.claude/rules/components.md)
+- Creating or editing a modal → [Modal baseline](.claude/rules/modals.md)
 - Creating or editing a Redux slice → [Redux slice structure](.claude/rules/slice.md)
 - Adding routes or checking permissions → [Routing & permissions](.claude/rules/routing.md)
 - Using or adding a helper/utility → [Helpers reference](.claude/rules/helpers.md)

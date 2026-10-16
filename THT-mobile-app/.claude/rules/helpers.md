@@ -34,6 +34,16 @@ const result = await runWithAccessData(async (accessData) => {
 
 OAuth token refresh and management. The axios interceptor uses it automatically — do not call it manually in components or screens.
 
+### `oauth.ts`
+
+Google / Microsoft SSO via the myAccount `/access-to/{provider}` page. myAccount forwards `code` (or the provider `error`) to `oauth/{provider}`; the app then calls `userLogon` with the code, so the refresh token is bound to the app's own `DeviceID`.
+
+| Function | Purpose |
+|----------|---------|
+| `isOAuthProvider(value)` | Type guard for `'google' \| 'microsoft'` (route params) |
+| `getOAuthRedirectUri(provider)` | `${EXPO_PUBLIC_MY_ACCOUNT_URL}/access-to/{provider}` — the same value must be sent to the provider and to `/api/auth/login/social` |
+| `getOAuthErrorMessage(provider, error?)` | Toast text for a cancelled (`access_denied`) or failed sign-in |
+
 ---
 
 ## Error handling
@@ -96,6 +106,21 @@ formatDateTime(isoString)  // "Dec 15, 2024 10:30 AM"
 ### `emailFormatting.ts`
 
 Email content utilities (subject/body preparation for email send flows).
+
+---
+
+## Contact actions
+
+### `contactActions.ts`
+
+Action sheets for tappable phone numbers and email addresses (`ActionSheet` from ADNR, `Linking.openURL` with a `Toast.fail` fallback):
+
+```typescript
+import { showPhoneActions, showEmailActions } from 'helpers/contactActions';
+
+showPhoneActions(phone); // Call (tel:) / Send Text (sms:) / Copy
+showEmailActions(email); // Send Email (mailto:) / Copy
+```
 
 ---
 
