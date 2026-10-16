@@ -26,6 +26,7 @@ String and HTML processing. Most-used functions:
 | `convertCompanyNameToSubDomain(name)` | Clean name for subdomain use |
 | `nocacheUrl(url)` | Add cache-busting `?t=` param |
 | `toHHMMSS(seconds)` | Format seconds as HH:MM:SS |
+| `toComparablePhone(phone)` | Digits-only key for comparing phone numbers in any format; a ten-digit number gets the US `1` (the back end's suppression canonicalisation) |
 
 ### `date.ts`
 Date formatting and timezone handling:
@@ -123,6 +124,8 @@ Candidate utilities:
 | `getSmsConsentBlock(status, isA2PRegistrationFinished, isTwilioSuppressed?)` | Why SMS is blocked for a candidate, or `null` when texting is allowed. Twilio suppression wins over every status; `OPTED_OUT` always blocks; `DECLINED` blocks but allows recording consent (`canRequestConsent`); `PENDING` blocks only for A2P-registered companies |
 | `getSmsConsentBlockedCandidates(candidates, isA2PRegistrationFinished)` | Same rule applied to a list — used by bulk SMS/sequence widgets |
 | `getSmsSendRefusal(error)` | Maps a **400** from the SMS send endpoint with a consent token in `data.message` (`twilio_suppressed`, `opted_out`, `sms_declined`, `sms_consent_pending`) to the same `SmsConsentBlock` as `getSmsConsentBlock`; `null` for any other error. Use it instead of showing the raw token |
+| `isTwilioSuppressedPhone(phone, isTwilioSuppressed, suppressedPhones?)` | Whether the Twilio block covers this number: `false` when the candidate flag is off; every number when the back end gives no `twilio_suppressed_phones`; otherwise only the listed numbers (`toComparablePhone`). Pass the result to `getSmsConsentBlock` / `useSmsConsentBlock` for the selected number |
+| `isEveryPhoneTwilioSuppressed(phones, isTwilioSuppressed, suppressedPhones?)` | The same check for all of the candidate's phones — whether an SMS entry point (the **Send text** opener) must be disabled; falls back to the flag when the phones are not loaded |
 
 Single-candidate components should use the `useSmsConsentBlock` hook instead of calling
 `getSmsConsentBlock` directly — it reads the A2P registration state from Redux.
