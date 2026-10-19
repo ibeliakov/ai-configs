@@ -27,6 +27,7 @@ String and HTML processing. Most-used functions:
 | `nocacheUrl(url)` | Add cache-busting `?t=` param |
 | `toHHMMSS(seconds)` | Format seconds as HH:MM:SS |
 | `toComparablePhone(phone)` | Digits-only key for comparing phone numbers in any format; a ten-digit number gets the US `1` (the back end's suppression canonicalisation) |
+| `toComparableEmail(email)` | Trimmed, lower-cased key for comparing email addresses the way the back end does |
 
 ### `date.ts`
 Date formatting and timezone handling:
