@@ -163,7 +163,7 @@ Job-board republication after unpause (sc-43517):
 | Export | Purpose |
 |--------|---------|
 | `getJobBoardRepublicationBoards(items, pendingSince, publishedCodes, now)` | Per-board UI state `pending` / `stuck` / `failed`; drops `published` entries and boards already live (a manual Publish leaves the entry `failed`) |
-| `getJobBoardRepublicationErrorText(message, boardName)` | Known backend messages as they are, `Required field is empty` explained, raw provider errors → generic retry text |
+| `getJobBoardRepublicationErrorText(message, boardName)` | Known backend messages as they are, `Required field is empty` and `Job posting is not eligible for Indeed sync` explained, raw provider errors → generic retry text |
 | `getJobBoardRepublicationRetryKey(jobId, code)` | Key of the `retrying` map in the `jobBoardRepublication` slice |
 | `JOB_BOARD_REPUBLICATION_POLL_MS` / `…_STUCK_ON_PAGE_MS` / `…_STUCK_SINCE_UPDATE_MS` | 5 s polling; `pending` counts as stuck after 60 s on the page, or 2 min since `updated_at` when the backend sends it |
 
