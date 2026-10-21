@@ -29,6 +29,7 @@ String and HTML processing. Most-used functions:
 | `toComparablePhone(phone)` | Digits-only key for comparing phone numbers in any format; a ten-digit number gets the US `1` (the back end's suppression canonicalisation) |
 | `toComparableEmail(email)` | Trimmed, lower-cased key for comparing email addresses the way the back end does |
 | `isRichTextEmpty(html)` | `true` for a missing value or editor markup with no visible text and no image, iframe or video (`<p><br></p>`, `<p>&nbsp;</p>`); the one emptiness check for Quill values |
+| `convertTextToNote(text, users)` | `AddNote` field text → the note that is sent: trimmed, `@full name email` mentions and `(::start old::)` mentions of former users turned into `<span data-id="ID">Name</span>`; the inverse of `convertNoteToText`. Measure note length on its result |
 
 ### `date.ts`
 Date formatting and timezone handling:
@@ -99,7 +100,7 @@ import { emailRules, passwordRules, phoneRules, urlWithProtocolRules } from 'hel
 <Form.Item name="phone" rules={phoneRules()}>
 ```
 
-Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`), Resume Scoring Criteria (`resumeScoringJobDescriptionRules` — required, no length cap; `scoringInstructionsRules(required)` — 10 000 characters of the HTML that is sent, as the back end counts; `resumeScoringTemplateTitleRules(label)` — required, 255).
+Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`), Resume Scoring Criteria (`resumeScoringJobDescriptionRules` — required, no length cap; `scoringInstructionsRules(required)` — 10 000 characters of the HTML that is sent, as the back end counts; `resumeScoringTemplateTitleRules(label)` — required, 255), note length (`noteLengthRule(max, toNote)` — `toNote(value).length` in UTF-16 units, as Java `@Size` counts, an emoji is 2; `NOTE_MAX_LENGTH` 2 500 for scorecard, interview-question and employee notes, `CANDIDATE_NOTE_MAX_LENGTH` 5 000 for candidate notes, `NOTE_COUNTER_THRESHOLD_RATIO` 0.8 for the `AddNote` counter).
 
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
 
