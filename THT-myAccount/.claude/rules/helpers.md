@@ -28,6 +28,7 @@ String and HTML processing. Most-used functions:
 | `toHHMMSS(seconds)` | Format seconds as HH:MM:SS |
 | `toComparablePhone(phone)` | Digits-only key for comparing phone numbers in any format; a ten-digit number gets the US `1` (the back end's suppression canonicalisation) |
 | `toComparableEmail(email)` | Trimmed, lower-cased key for comparing email addresses the way the back end does |
+| `isRichTextEmpty(html)` | `true` for a missing value or editor markup with no visible text and no image, iframe or video (`<p><br></p>`, `<p>&nbsp;</p>`); the one emptiness check for Quill values |
 
 ### `date.ts`
 Date formatting and timezone handling:
@@ -98,7 +99,7 @@ import { emailRules, passwordRules, phoneRules, urlWithProtocolRules } from 'hel
 <Form.Item name="phone" rules={phoneRules()}>
 ```
 
-Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`).
+Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`), Resume Scoring Criteria (`resumeScoringJobDescriptionRules` — required, no length cap; `scoringInstructionsRules(required)` — 10 000 characters of the HTML that is sent, as the back end counts; `resumeScoringTemplateTitleRules(label)` — required, 255).
 
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
 
@@ -143,6 +144,15 @@ Job post utilities:
 | `getNotificationRecipients(notifications, type)` / `setNotificationRecipients(notifications, type, userIds)` / `removeNotificationType(notifications, type)` | Read, replace or drop one type's recipients in the job's `notifications` |
 | `addRecipientToNotifications(notifications, userId)` / `removeRecipientFromNotifications(notifications, userId)` | Add a manager to every enabled type / remove them from all types (keeps the form in sync with the Managers section) |
 | `sanitizeNotifications(notifications, managerIds)` | Keep only recipients that are managers — the back end rejects others with 400 |
+
+### `urlBuilders.ts`
+Scoped links (the `/c/…` or `/cg/…/c/…` prefix comes from `buildPath`):
+
+| Function | Purpose |
+|----------|---------|
+| `generateJobPostPath(companyId, jobId, template?)` | A job post page; `companyId` may be `undefined` to use the current scope |
+| `generateCandidatePath(companyId, jobId, candidateId)` | A candidate profile `/c/:cid/jp/:jid/candidate/:id` |
+| `generateResumeScoringCriteriaPath(companyId, jobId)` | Find and Evaluate Talent of the job with `?action=resume_scoring_criteria`, which opens the Resume Scoring Criteria editor |
 
 ### `indeedSponsorship.ts`
 Indeed sponsored-campaign display and the restart form (sc-45559):
