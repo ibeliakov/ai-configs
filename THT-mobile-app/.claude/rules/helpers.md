@@ -103,6 +103,10 @@ formatDate(isoString)      // "Dec 15, 2024"
 formatDateTime(isoString)  // "Dec 15, 2024 10:30 AM"
 ```
 
+`isDateAnswer(value)` — whether a free-text answer (screening questions) is exactly `YYYY-MM-DD`
+or a full ISO timestamp; only then show it through `useDateFormat`'s `getFormattedDate`, otherwise
+show the raw answer.
+
 ### `emailFormatting.ts`
 
 Email content utilities (subject/body preparation for email send flows).

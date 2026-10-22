@@ -38,6 +38,7 @@ Date formatting and timezone handling:
 |----------|---------|
 | `getMonthDayYearFormatted(date)` | Format to "MMM DD, YYYY" |
 | `getFormattedDateDB(date)` | Format for DB storage |
+| `parseDateAnswer(value)` | A free-text answer (screening questions) → local moment when it is exactly `YYYY-MM-DD` (same calendar day, no shift) or a full ISO timestamp; `undefined` for anything else. Pass the result to `useDateFormat`'s `getFormattedDate` and fall back to the raw answer |
 | `convertUtcToLocalDate(utc)` | Convert UTC → user's local timezone |
 | `getTimeWithTimeZone(date)` | Attach server timezone to date |
 | `formatUtcInTimeZone(utc, tz)` | Format UTC in a specific timezone |
