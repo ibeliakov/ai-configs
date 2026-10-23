@@ -226,6 +226,15 @@ const response = await ClientApi.get<AxiosResponse<MyType>>('/api/...', { params
 const response = await ClientApi.post('/api/...', body);
 ```
 
+### `forActions.ts`
+Error handling and access data for API calls:
+
+| Function | Purpose |
+|----------|---------|
+| `runWithAccessData(fn)` | Run `fn` with the effective `{ company_id, company_group_id }` of the URL scope; shows *Full authentication is required…* and returns `undefined` when there is no scope |
+| `getErrorMessage(error, fallback?)` | The back end's `data.full_message` or `data.message`, otherwise `fallback` (default *Some error occurred*) — for showing an error in place instead of a toast |
+| `handleError(error)` | Error toast with `getErrorMessage`; no toast for 401, a guest losing its session or the rest of a denied-scope burst |
+
 ### `authWrapper.js`
 Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 **Legacy JS file — do not modify.** See [routing.md](routing.md) for usage context.
