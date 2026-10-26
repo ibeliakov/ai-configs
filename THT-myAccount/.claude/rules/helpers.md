@@ -88,7 +88,7 @@ All project regex patterns — import from here, do not duplicate:
 | `currencyCodePayRegex` | "USD 50000 annually" patterns |
 | `salaryKeywordPayRegex` | "Salary: $120,000" patterns |
 | `salaryKeywordWithPeriodPayRegex` | "Rate: 48.37 per hour" patterns |
-| `dataImageUriRegexp` | An embedded `data:image/…` src anywhere in editor HTML (stateless, no `g`) |
+| `dataImageUriRegexp` | An `<img>` whose `src` is a `data:image/…` URI anywhere in editor HTML (case-insensitive, stateless, no `g`; plain text mentioning `data:image/` does not match) |
 | `dataUriRegexp` | Mime type and base64 payload of one `data:` URI |
 
 ### `rulesFields.ts`
