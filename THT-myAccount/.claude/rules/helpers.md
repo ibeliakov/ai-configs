@@ -88,6 +88,8 @@ All project regex patterns — import from here, do not duplicate:
 | `currencyCodePayRegex` | "USD 50000 annually" patterns |
 | `salaryKeywordPayRegex` | "Salary: $120,000" patterns |
 | `salaryKeywordWithPeriodPayRegex` | "Rate: 48.37 per hour" patterns |
+| `dataImageUriRegexp` | An embedded `data:image/…` src anywhere in editor HTML (stateless, no `g`) |
+| `dataUriRegexp` | Mime type and base64 payload of one `data:` URI |
 
 ### `rulesFields.ts`
 AntD `Form` validation rule builders — **always use these instead of writing inline rules**.
@@ -103,7 +105,17 @@ import { emailRules, passwordRules, phoneRules, urlWithProtocolRules } from 'hel
 
 Contains rule builders for: email, password, phone, URL, postal code, company name (async uniqueness check), subdomain (async uniqueness check), LinkedIn ID, job description, screening questions, SMS templates, template tokens, benefits, status names, Indeed campaign budget (`indeedBudgetRules`) and restart dates (`getIndeedRestartStartDateRules`, `getIndeedRestartEndDateRules`), Resume Scoring Criteria (`resumeScoringJobDescriptionRules` — required, no length cap; `scoringInstructionsRules(required)` — 10 000 characters of the HTML that is sent, as the back end counts; `resumeScoringTemplateTitleRules(label)` — required, 255), note length (`noteLengthRule(max, toNote)` — `toNote(value).length` in UTF-16 units, as Java `@Size` counts, an emoji is 2; `NOTE_MAX_LENGTH` 2 500 for scorecard, interview-question and employee notes, `CANDIDATE_NOTE_MAX_LENGTH` 5 000 for candidate notes, `NOTE_COUNTER_THRESHOLD_RATIO` 0.8 for the `AddNote` counter).
 
+`jobDescriptionRules(label)` also rejects a description that still contains a `data:image` embed, on submit only (`imageUploadPendingMessage`) — the editor's `useImageAutoUpload` normally replaces such embeds before the user can save.
+
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
+
+### `image.ts`
+Images that go through the rich-text editor (`templates/EmailEditor`):
+
+| Function | Purpose |
+|----------|---------|
+| `getImageFileErrors(file)` | Format (`IMAGE_FORMAT_LIST`) and size (`IMAGE_MAX_SIZE_MB` = 5) errors for an editor image, `[]` when allowed; the one check for the Image button and for pasted or dropped files |
+| `dataUriToFile(dataUri, name?)` | A base64 `data:` URI → `File` (mime kept, generated `image-<ts>.<ext>` name), `null` when it is not base64 |
 
 ### `storage.ts`
 localStorage / sessionStorage with JSON serialization:
