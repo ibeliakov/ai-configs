@@ -119,6 +119,24 @@ Device detection helpers (mobile, tablet, desktop).
 
 User country/locale detection utilities.
 
+### `helpers/componentsWrappers.tsx`
+
+`ErrorBoundary` — place it in JSX around a UI block. On a render error it shows the "Something went wrong." fallback, calls `reportBoundaryError`, and on `ChunkLoadError` asks the user to reload. Pass `resetKey` (tab, route, step) to clear the error when the key changes.
+
+```tsx
+import ErrorBoundary from '@src/helpers/componentsWrappers';
+
+<ErrorBoundary resetKey={activeTab}>...</ErrorBoundary>
+```
+
+### `helpers/errorReporting.ts`
+
+`reportBoundaryError(error, info)` — single entry point for errors caught by `ErrorBoundary`. Logs `[ErrorBoundary]` to the console only when `isDebugEnabled()`. Plug an error-monitoring service in here.
+
+### `helpers/debugLogger.ts`
+
+`isDebugEnabled()` — true in development or when `localStorage.debug_logs` is `'true'`. Gate debug-only logging with it instead of leaving `console.log` in code.
+
 ---
 
 ## Hooks (`src/hooks/`)
@@ -142,4 +160,3 @@ User country/locale detection utilities.
 |------|------|
 | `helpers/ClientApi.js` | Axios instance — JS file, edit only for auth/header changes |
 | `helpers/Utils.js` | Legacy utility collection — do not modify |
-| `helpers/componentsWrappers.js` | Legacy component wrappers — do not modify |
