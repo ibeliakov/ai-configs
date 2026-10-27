@@ -17,7 +17,7 @@ Read the relevant file before writing code:
 
 - **Next.js** 13.0.5 — file-based routing, SSR via `getServerSideProps`
 - **React** 18.2.0 — functional components only, `FC<Props>` typing
-- **TypeScript** 4.9.3 — `strict: true`, use `type` not `interface`
+- **TypeScript** 5.3.3 — `strict: true`, use `type` not `interface`
 - **Redux** — legacy only: `redux` + `redux-thunk`, switch-case reducers. No `@reduxjs/toolkit`
 - **Ant Design** 3.26.5 — icons via `Icon` component, `Form.create()` HOC
 - **Axios** — via `helpers/ClientApi` wrapper (JS file), never import axios directly
@@ -29,6 +29,8 @@ Read the relevant file before writing code:
 - Use `FC<Props>` for components
 - `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` is the standard loading state type
 - tsconfig target is `es2022`
+- `@types/react` is 18 — `FC<Props>` has no implicit `children`, declare `children?: ReactNode` in Props when needed
+- `antd-react18.d.ts` patches antd 3 typings for `@types/react` 18 (`React.SFC`, missing `children`) — extend it instead of casting; delete it with the antd 4 upgrade (sc-40233)
 
 ## Imports
 
