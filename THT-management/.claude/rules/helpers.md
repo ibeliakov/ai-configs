@@ -24,20 +24,28 @@ const response = await ClientApi.post('/api/management/items', body);
 
 ### `helpers/forActions.ts`
 
-Error handling helper:
+Error handling helpers — same API as THT-myAccount `helpers/forActions.ts`:
+
+| Function | Purpose |
+|----------|---------|
+| `getErrorMessage(error, fallback?)` | The back end's `data.full_message` or `data.message`, otherwise `fallback` (default *Some error occurred*) |
+| `showError(error)` | Ant Design `notification.error` with `getErrorMessage`; no toast for 401 (`response.status` or `response.data.status`) |
+| `handleError(error)` | Runs `showError` — the default for `catch` blocks |
 
 ```typescript
-import { handleError } from 'helpers/forActions';
+import { getErrorMessage, handleError } from 'helpers/forActions';
 
 try {
   const response = await ClientApi.get('/api/...');
   return response.data;
 } catch (error) {
-  handleError(error); // shows antd notification with error message
+  handleError(error);
 }
+
+dispatch({ type: FAILURE(GET_ITEMS), payload: { error: getErrorMessage(error) } });
 ```
 
-`handleError` reads `error.response.data.data.message` and shows an Ant Design `notification.error`.
+Never read `error.response.data.data.message` directly (`get(error, 'response.data.data.message')`, optional chaining, local `notifyError`) — the error text for a toast, a redux `FAILURE` payload or inline UI always comes from `getErrorMessage`.
 
 ---
 
