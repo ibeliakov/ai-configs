@@ -15,7 +15,7 @@ Read the relevant file before writing code:
 ## Stack
 
 - **React** 18.2.0 — functional components only, `FC<Props>` typing
-- **TypeScript** 3.7.5 — `strict: true`, use `type` not `interface`
+- **TypeScript** 4.9.5 — `strict: true`, use `type` not `interface`
 - **Redux** — legacy only: `redux` + `redux-thunk`, switch-case reducers. No `@reduxjs/toolkit`
 - **Ant Design** 3.26.5 — icons from `antd` (`Icon` component), `Form.create()` HOC
 - **React Router** v5 — `BrowserRouter`, `Route`, `Switch`
@@ -64,10 +64,10 @@ When writing new Redux code, follow the existing switch-case pattern in the near
 
 ```typescript
 import { useAppSelector } from 'hooks/useAppSelector';
-import { useAppDispatch } from 'hooks/useAppDispatch';
+import useAppDispatch from 'hooks/useAppDispatch';
 ```
 
-Never import `useSelector` or `useDispatch` directly from `react-redux`.
+Never import `useSelector` or `useDispatch` directly from `react-redux`. ESLint enforces this via `no-restricted-imports`.
 
 ## API calls
 
@@ -91,6 +91,11 @@ trailingComma: 'es5'
 printWidth: 80
 jsxSingleQuote: false
 ```
+
+- `.eslintrc.js` mirrors THT-myAccount: `eslint:recommended` + `@typescript-eslint/recommended`, react-hooks, jsx-a11y.
+- Rules that bite most: `@typescript-eslint/no-unused-vars` (error, no ignore patterns — drop unused params and imports, use `omit` instead of a dead rest-sibling binding), `consistent-type-definitions: type`, `no-restricted-imports` for raw `useSelector`/`useDispatch`, `jsx-quotes: prefer-double`.
+- Only deviation from myAccount: `no-empty` allows an empty `catch {}`.
+- `npm run lint` must stay at 0 errors; `npx tsc -p tsconfig.json --noEmit` must stay clean.
 
 ---
 
