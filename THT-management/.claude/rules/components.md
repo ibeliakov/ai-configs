@@ -116,7 +116,7 @@ Do **not** split just because JSX is long. Subcomponents go into `components/` a
 Always use typed hooks — never raw `useSelector`/`useDispatch`:
 ```typescript
 import { useAppSelector } from 'hooks/useAppSelector';
-import { useAppDispatch } from 'hooks/useAppDispatch';
+import useAppDispatch from 'hooks/useAppDispatch';
 ```
 
 ## Ant Design v3

@@ -8,7 +8,7 @@
 
 ## Project overview
 
-React 18 + TypeScript 3.7.5 SPA. Legacy Redux codebase: `redux` + `redux-thunk`, switch-case reducers throughout (including the `store/slices/` folder — no `@reduxjs/toolkit`). UI: Ant Design 3.26.5. React Router v5. Axios via `helpers/ClientApi` (JS file).
+React 18 + TypeScript 4.9.5 SPA. Legacy Redux codebase: `redux` + `redux-thunk`, switch-case reducers throughout (including the `store/slices/` folder — no `@reduxjs/toolkit`). UI: Ant Design 3.26.5. React Router v5. Axios via `helpers/ClientApi` (JS file).
 
 ---
 
@@ -91,7 +91,7 @@ Always use typed hooks — never raw `useSelector`/`useDispatch`:
 
 ```typescript
 import { useAppSelector } from 'hooks/useAppSelector';
-import { useAppDispatch } from 'hooks/useAppDispatch';
+import useAppDispatch from 'hooks/useAppDispatch';
 ```
 
 ---
