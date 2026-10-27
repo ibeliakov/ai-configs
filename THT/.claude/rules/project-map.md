@@ -73,7 +73,7 @@ src/
 **Роль:** Публічна частина — форми для кандидатів, проходження оцінок, тести.
 
 **Стек:**
-- Next.js 13.0.5 + React 18.2 + TypeScript 4.9.3 (strict)
+- Next.js 13.0.5 + React 18.2 + TypeScript 5.3.3 (strict)
 - Redux: **тільки legacy** (`redux` + `redux-thunk` + `next-redux-wrapper`)
 - Ant Design 3.26.5 + `Form.create()` HOC
 - SSR через `getServerSideProps` + `wrapper.getServerSideProps`
