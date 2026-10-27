@@ -72,7 +72,7 @@ Never import `useSelector` or `useDispatch` directly from `react-redux`.
 ## API calls
 
 - Always go through `helpers/ClientApi` (Axios instance with auth headers)
-- Error handling via `handleError` from `helpers/forActions`
+- Error handling via `handleError` from `helpers/forActions`; error text (redux `FAILURE` payload, inline UI) via `getErrorMessage` — never `error.response.data.data.message` directly
 - `ClientApi` is a JavaScript file — import as: `import ClientApi from 'helpers/ClientApi'`
 
 ## Ant Design
@@ -103,7 +103,7 @@ src/
   constants/      app-wide constants, path strings, permission constants
   helpers/
     ClientApi.js  Axios instance with auth headers (JS, not TS)
-    forActions.ts handleError helper
+    forActions.ts error helpers (getErrorMessage, showError, handleError)
     storage.ts    localStorage helpers
     regexp.ts     all project regex patterns
     rulesFields.ts AntD Form validation rule builders
