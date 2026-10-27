@@ -96,6 +96,8 @@ printWidth: 80
 jsxSingleQuote: false
 ```
 
+ESLint warns on `no-console` (only `console.error` / `console.warn` allowed), `@typescript-eslint/no-explicit-any`, `react-hooks/exhaustive-deps` and `@next/next/no-img-element`. Do not add new violations. `next build` runs ESLint, so any rule set to `error` must have zero violations.
+
 ---
 
 ## Folder map
@@ -159,5 +161,4 @@ Data flows down, events bubble up.
 |---|---|
 | `src/helpers/ClientApi.js` | Axios instance — JS file, edit only for auth/header changes |
 | `src/helpers/Utils.js` | Legacy utility collection |
-| `src/helpers/componentsWrappers.js` | Legacy component wrappers |
 | `src/store/configureStore.ts` | Store bootstrap — do not restructure |
