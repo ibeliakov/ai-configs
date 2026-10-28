@@ -55,6 +55,7 @@ Feature-specific API functions. Use these instead of calling ClientApi directly 
 | `feedbackPerformanceApi.ts` | Feedback and performance data |
 | `internetSpeed.ts` | Internet speed detection |
 | `mediaStoreManager.ts` / `mediaStoreManagerAWS.ts` | Media upload management |
+| `deviceTrackingApi.ts` | `trackDeviceEventAPI(goal)` — fire-and-forget GET to the device-tracking endpoint; `goal` is serialised into `request_goal_id` (used for media-access telemetry on the interview page) |
 
 ---
 
@@ -123,6 +124,28 @@ List and array utilities.
 ### `helpers/deviceDetector.tsx`
 
 Device detection helpers (mobile, tablet, desktop).
+
+`checkIsInAppBrowser()` — true for in-app browsers that usually cannot use the camera (iOS WKWebView without the Safari token, Google app, Facebook/Instagram/LinkedIn/Indeed apps, Android WebView).
+
+### `helpers/mediaAccess.ts`
+
+Camera/microphone access diagnostics shared by the one-way interview page:
+
+```typescript
+import {
+  classifyMediaAccessError,   // getUserMedia error → MediaAccessStatus
+  getMediaPermissionStates,   // Permissions API for camera + microphone, 'unknown' when unsupported
+  probeMediaDevice,           // getUserMedia for one kind, stream stopped immediately
+  canProbeWithoutPrompt,      // probes are allowed only when they cannot open a new prompt
+  stopMediaStream,            // stops every track of a stream
+} from '@src/helpers/mediaAccess';
+```
+
+`MediaAccessStatus`: `ok | pending | dismissed | blocked_camera | blocked_microphone | blocked_both | system_blocked | no_device | busy | ios_audio_reset | in_app_browser | unsupported`.
+
+### `helpers/clipboard.ts`
+
+`copyToClipboard(text)` — Clipboard API with a `textarea` + `execCommand('copy')` fallback for WebViews; resolves to `true` when copied.
 
 ### `helpers/userCountry.ts`
 
