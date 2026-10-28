@@ -27,7 +27,7 @@ Read the relevant file before writing code:
 - Prefer explicit return types on hooks and complex functions
 - Use `FC<Props>` for components
 - `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` is the standard loading state type
-- tsconfig target is `es5` — avoid modern runtime features not covered by polyfills
+- tsconfig target is `es2022` (same as myAccount); browser output is set by Vite `build.target` (default `'modules'`: es2020 / Chrome 87 / Safari 14), not by tsconfig
 
 ## Imports
 

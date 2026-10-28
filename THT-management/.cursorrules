@@ -19,7 +19,7 @@ React 18 + TypeScript 4.9.5 SPA. Legacy Redux codebase: `redux` + `redux-thunk`,
 - Use `FC<Props>` for all components
 - `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` for async state
 - Absolute imports work from `src/` root (tsconfig `baseUrl: "src"`)
-- tsconfig target is `es5` — do not rely on runtime features not covered by polyfills
+- tsconfig target is `es2022` (same as myAccount); browser output is set by Vite `build.target` (default `'modules'`: es2020 / Chrome 87 / Safari 14), not by tsconfig
 
 ---
 
