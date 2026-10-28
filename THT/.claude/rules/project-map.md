@@ -13,7 +13,7 @@
 - Redux: змішаний — legacy (`redux` + `redux-thunk`) + RTK (`@reduxjs/toolkit`). Новий код — тільки RTK
 - Ant Design 4.24.7 + Less theming
 - React Router v5 (централізований `routeItems`)
-- Axios через `helpers/ClientApi`
+- Axios 1.20.0 (точний пін) через `helpers/ClientApi`
 
 **Dev:** `yarn start` → `localhost:3000`
 
@@ -46,7 +46,7 @@ src/
 - Redux: змішаний — legacy (`redux` + `redux-thunk`) + RTK (`@reduxjs/toolkit` 1.9). Новий код — тільки RTK (`THT-management/.claude/rules/slice.md`)
 - Ant Design 3.26.5 + `Form.create()` HOC
 - React Router v5 (централізований `src/pages/routeItems.js`)
-- Axios через `helpers/ClientApi` (JS файл)
+- Axios 1.20.0 (точний пін) через `helpers/ClientApi` (JS файл)
 
 **Dev:** `yarn start` → `localhost:3030` (або `node ./server/app.js` для prod-режиму)
 
@@ -77,6 +77,7 @@ src/
 - Redux: **тільки legacy** (`redux` + `redux-thunk` + `next-redux-wrapper`)
 - Ant Design 3.26.5 + `Form.create()` HOC
 - SSR через `getServerSideProps` + `wrapper.getServerSideProps`
+- Axios 1.20.0 (точний пін) через `src/helpers/ClientApi`
 - Path aliases: `@src/`, `@components/`, `@styles/`, `@pages/`, `@public/`
 
 **Dev:** `yarn dev` → `localhost:3080`
@@ -110,7 +111,7 @@ src/ або pages/
 - Redux: **тільки RTK** (`@reduxjs/toolkit` 2.10.1). Legacy заборонено
 - Ant Design React Native 5.4.3
 - Expo Router 6 — file-based routing в `app/`
-- Axios через `src/api/axios.ts`
+- Axios 1.20.0 (точний пін) через `src/api/axios.ts`
 
 **Dev:** `npx expo start` (або `yarn start`) → обирати iOS/Android/Web в консолі
 
@@ -147,6 +148,18 @@ src/
 **Dev:** `node ./server/app.js` → `localhost:8080`
 
 **Збірка:** `yarn build` — збирає `base-reports/` та `new-reports/` React застосунки
+
+---
+
+## Спільні конвенції
+
+**axios** — у всіх фронтах (applicant, management, myAccount, mobile-app, chrome-extension) однакова версія, закріплена точно: `"axios": "1.20.0"`, без `^`. Оновлювати лише всі репо разом, однією сторі (як 40236); встановлювати `npm install axios@<версія> --save-exact`. Причина: однакова поведінка/типи скрізь і захист від supply-chain релізів, що прилітають через `^`.
+
+**Помилки й відповіді API** (однаково в усіх репо, деталі — у `helpers.md` кожного проекту):
+- Контракт бекенда: успіх `{ result_code, result_text: "Success", data }`; помилка `{ result_code, result_text: "failure", data: { message, full_message } }`; 419 — `{ error, message }`; 403 auth — `{ result_code, result_text }` без `data`; 401 — Spring `{ status, error }`.
+- Текст помилки — тільки через `getErrorMessage` (порядок `full_message` → `message` → `result_text` → верхньорівневий `message` (не для 401/419) → fallback). `error.response.data…` напряму не читати, `error.message` axios-помилки користувачу не показувати.
+- Статус — `getErrorStatus(error)`. 401/419 тихі (крім applicant, де немає сесійного логауту).
+- Генерик запиту — `ApiResponse<T>` (конверт бекенда), **ніколи** `AxiosResponse<T>`; пагінація — `ResponseSearch<T>` = `ApiResponse<PageData<T>>`.
 
 ---
 

@@ -18,7 +18,7 @@ This is a **JavaScript file** — do not convert it to TypeScript.
 ```typescript
 import ClientApi from 'helpers/ClientApi';
 
-const response = await ClientApi.get('/api/management/items', { params });
+const response = await ClientApi.get<ApiResponse<Item[]>>('/api/management/items', { params });
 const response = await ClientApi.post('/api/management/items', body);
 ```
 
@@ -28,9 +28,13 @@ Error handling helpers — same API as THT-myAccount `helpers/forActions.ts`:
 
 | Function | Purpose |
 |----------|---------|
-| `getErrorMessage(error, fallback?)` | The back end's `data.full_message` or `data.message`, otherwise `fallback` (default *Some error occurred*) |
-| `showError(error)` | Ant Design `notification.error` with `getErrorMessage`; no toast for 401 (`response.status` or `response.data.status`) |
+| `getErrorMessage(error, fallback?)` | `data.full_message` → `data.message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419) → `fallback` (default *Some error occurred*) |
+| `getVisibleErrorMessage(error, fallback?)` | `''` for 401/419, otherwise `getErrorMessage` — for legacy redux `FAILURE` payloads that containers toast with `error && …` |
+| `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `showError(error)` | Ant Design `notification.error` with `getErrorMessage`; no toast for 401/419 (`response.status` or `response.data.status`) |
 | `handleError(error)` | Runs `showError` — the default for `catch` blocks |
+
+All helpers take `error: unknown`. Types live in `interfaces/common.ts`: `ApiResponse<T>`, `PageData<T>`, `ResponseSearch<T>` (= `ApiResponse<PageData<T>>`), `ApiErrorBody`, `QueryError`.
 
 ```typescript
 import { getErrorMessage, handleError } from 'helpers/forActions';
@@ -42,10 +46,14 @@ try {
   handleError(error);
 }
 
-dispatch({ type: FAILURE(GET_ITEMS), payload: { error: getErrorMessage(error) } });
+dispatch({ type: FAILURE(GET_ITEMS), payload: { error: getVisibleErrorMessage(error) } });
 ```
 
-Never read `error.response.data.data.message` directly (`get(error, 'response.data.data.message')`, optional chaining, local `notifyError`) — the error text for a toast, a redux `FAILURE` payload or inline UI always comes from `getErrorMessage`.
+Never read `error.response.data.data.message` directly (`get(error, 'response.data.data.message')`, optional chaining, local `notifyError`) — the error text for a toast, a redux `FAILURE` payload or inline UI always comes from `getErrorMessage` / `getVisibleErrorMessage`; the status from `getErrorStatus`.
+
+- Sign-in actions (`authAction.js`) use `getErrorMessage`, not `getVisibleErrorMessage` — there is no session to end silently there.
+- RTK thunks reject with a string: `rejectWithValue(getErrorMessage(error))` with `rejectValue: string`, never the raw AxiosError.
+- Request generic is `ApiResponse<T>` (the backend envelope), never `AxiosResponse<T>`; endpoints that return a raw body keep their own type.
 
 ---
 

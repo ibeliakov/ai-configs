@@ -18,7 +18,7 @@ Axios instance with auth headers, device ID, and token management (on 401 it ref
 ```typescript
 import ClientApi from '@src/helpers/ClientApi';
 
-const response = await ClientApi.get('/api/company/jobs/application/v2', { params });
+const response = await ClientApi.get<ApiResponse<JobPostApplicationForm>>('/api/company/jobs/application/v2', { params });
 const response = await ClientApi.post('/api/...', body);
 ```
 
@@ -28,18 +28,33 @@ const response = await ClientApi.post('/api/...', body);
 
 ### `helpers/forActions.ts`
 
-Error handling helper:
+Error helpers. They take `error: unknown` and read the backend envelope (`ApiErrorBody` in `interfaces/commone.d.ts`):
+
+| Function | Purpose |
+|----------|---------|
+| `getErrorMessage(error, fallback?)` | `data.full_message` → `data.message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419) → `fallback` (default *Some error occurred*) |
+| `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`) |
+| `handleError(error)` | antd notification with `getErrorMessage` in the browser, no-op on the server. Also on 401/419 — the applicant has no session logout to hide them behind |
+| `parseBlobError(error)` | For `responseType: 'blob'` requests: turns a JSON error body back into an object — `throw await parseBlobError(error)` |
+| `toLoggableError(error)` | What SSR `console.error` logs: `{ message, code, method, url, status, result_code, error_code }`. Never log the raw AxiosError — `config.headers` holds the API key and `X-Access-Token` |
+| `toLoggableHeaders(headers)` | Request headers for SSR logs — only `host`, `referer`, `user-agent`, `accept-language` |
+| `isNetworkError(error)` / `isTransientNotNetworkError(error)` | No response at all / proxy 503 or 429 without `result_code` |
 
 ```typescript
 import { handleError } from '@src/helpers/forActions';
 
 try {
-  const response = await ClientApi.get('/api/...');
-  return response.data;
+  const response = await ClientApi.get<ApiResponse<Item[]>>('/api/...');
+  return response.data.data;
 } catch (error) {
-  handleError(error); // shows antd notification with error message
+  handleError(error);
 }
 ```
+
+Rules:
+- Never read `error.response.data…` directly and never show the axios `error.message` — use `getErrorMessage` / `getErrorStatus` / `getErrorData`.
+- Request generic is `ApiResponse<T>` from `@src/interfaces/commone` (the backend envelope), never `AxiosResponse<T>`. Endpoints that return a raw body keep their own type.
 
 ---
 

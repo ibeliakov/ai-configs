@@ -236,7 +236,7 @@ Axios instance with auth headers, interceptors, and build-version tracking.
 ```typescript
 import ClientApi from 'helpers/ClientApi';
 
-const response = await ClientApi.get<AxiosResponse<MyType>>('/api/...', { params });
+const response = await ClientApi.get<ApiResponse<MyType>>('/api/...', { params });
 const response = await ClientApi.post('/api/...', body);
 ```
 
@@ -246,8 +246,18 @@ Error handling and access data for API calls:
 | Function | Purpose |
 |----------|---------|
 | `runWithAccessData(fn)` | Run `fn` with the effective `{ company_id, company_group_id }` of the URL scope; shows *Full authentication is required…* and returns `undefined` when there is no scope |
-| `getErrorMessage(error, fallback?)` | The back end's `data.full_message` or `data.message`, otherwise `fallback` (default *Some error occurred*) — for showing an error in place instead of a toast |
-| `handleError(error)` | Error toast with `getErrorMessage`; no toast for 401, a guest losing its session or the rest of a denied-scope burst |
+| `getErrorMessage(error, fallback?)` | `data.full_message` → `data.message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419) → `fallback` (default *Some error occurred*) — for showing an error in place instead of a toast. Pass `''` as fallback when the caller has its own default text |
+| `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`) — for backend codes such as SMS refusal tokens |
+| `isRequestError(error)` | `true` for an axios error — tells a request failure (already toasted by `handleError`) from a local validation `Error` |
+| `parseBlobError(error)` | For `responseType: 'blob'` requests: turns a JSON error body back into an object before `getErrorMessage` |
+| `handleError(error)` | Error toast with `getErrorMessage`; no toast for 401/419, a guest losing its session or the rest of a denied-scope burst |
+
+All helpers take `error: unknown`. Types live in `interfaces/common.ts`: `ApiResponse<T>`, `PageData<T>`, `ResponseSearch<T>` (= `ApiResponse<PageData<T>>`), `ApiErrorData`, `ApiErrorBody`, `QueryError`.
+
+Rules:
+- Never read `error.response…` directly (`get(error, 'response.data.data.message')`, `(error as …).response?.status`) and never show the axios `error.message` — use the helpers above.
+- Request generic is `ApiResponse<T>` (the backend envelope), never `AxiosResponse<T>`; endpoints that return a raw body keep their own type.
 
 ### `authWrapper.js`
 Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).

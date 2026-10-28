@@ -60,17 +60,23 @@ try {
   return response.data.data;
 } catch (error) {
   handleError(error);
-  return rejectWithValue(error);
+  return rejectWithValue(getErrorMessage(error, 'Failed to load items'));
 }
 ```
 
 | Function | Purpose |
 |----------|---------|
 | `handleError(error)` | Shows `Toast.fail` + handles ACCESS_DENIED (300) result_code |
-| `parseApiError(error)` | Returns structured `ApiError` with type and statusCode |
-| `getErrorMessage(error)` | Extracts `full_message` → `message` → fallback |
-| `shouldShowError(error)` | Returns `false` for 401 errors (handled silently by auto-logout) |
+| `parseApiError(error)` | Returns structured `ApiError` with type and statusCode. `network` only for an axios error without a response |
+| `getErrorMessage(error, fallback?)` | `full_message` → `message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419); network errors → *Check your internet connection and try again*; otherwise `fallback` (default *An unexpected error occurred*) |
+| `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `shouldShowError(error)` | `false` for 401/419 and for guest verification errors |
 | `showError(error)` | Shows Toast if `shouldShowError` is true |
+
+Rules:
+- Never show `error.message` of an axios error ("Request failed with status code …") and never read `error.response.data…` directly — use `getErrorMessage(error, '<feature fallback>')` / `getErrorStatus`.
+- Thunks reject with a message string, never the raw AxiosError (non-serializable, carries config and headers).
+- Request generic is `ApiResponse<T>` from `src/types/common.ts` (the backend envelope) — `api.get<ApiResponse<T>>(…)` → `response.data.data`. Not inline `<{ data: T }>` and not the payload type itself.
 
 ---
 
