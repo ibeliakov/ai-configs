@@ -7,6 +7,7 @@ Read the relevant file before writing code:
 - Working on any component → [Component structure & code order](.claude/rules/components.md)
 - Using or adding a helper/utility → [Helpers reference](.claude/rules/helpers.md)
 - Adding routes or checking permissions → [Routing & permissions](.claude/rules/routing.md)
+- Writing or changing Redux code → [Redux slice rules](.claude/rules/slice.md)
 
 ## Language
 
@@ -16,7 +17,7 @@ Read the relevant file before writing code:
 
 - **React** 18.2.0 — functional components only, `FC<Props>` typing
 - **TypeScript** 4.9.5 — `strict: true`, use `type` not `interface`
-- **Redux** — legacy only: `redux` + `redux-thunk`, switch-case reducers. No `@reduxjs/toolkit`
+- **Redux** — `@reduxjs/toolkit` 1.9 on top of `redux` 4 + `redux-thunk` (same as myAccount). All new Redux code is RTK; legacy switch-case code is still being migrated
 - **Ant Design** 3.26.5 — icons from `antd` (`Icon` component), `Form.create()` HOC
 - **React Router** v5 — `BrowserRouter`, `Route`, `Switch`
 - **Axios** — via `helpers/ClientApi` wrapper (JS file), never import axios directly
@@ -43,22 +44,26 @@ Read the relevant file before writing code:
 - Use `classnames` for conditional classes
 - Styles: CSS Modules (`.module.scss`), never inline styles except for dynamic values
 
-## Redux — all code is legacy
+## Redux — RTK for all new code
 
-All Redux code uses the legacy pattern (manual action constants, switch-case reducers, thunks):
+All new Redux code uses Redux Toolkit — `createSlice` + `createAsyncThunk` in `src/store/slices/<domain>/`, following [slice.md](.claude/rules/slice.md). Reference slice: `src/store/slices/jobTypes`.
+
+- New domain, new reducer, new async action, or a reworked domain → RTK only
+- Do not add new switch-case reducers or new `createAction` constants
+- The store stays on `createStore` + `redux-thunk` (`store/configureStore.ts`), as in myAccount — RTK slices plug into `combineReducers` in `src/reducers/index.ts`
+
+Legacy code is still being migrated (sc-40219 `src/actions` + `store/slices`, sc-40220 `src/reducers`):
 
 ```
 src/
-  actions/          action creators with redux-thunk
-  reducers/         switch-case reducers
+  actions/          legacy action creators with redux-thunk
+  reducers/         legacy switch-case reducers
   store/
     configureStore.ts   store bootstrap
-    slices/             also uses legacy pattern — switch-case, NOT RTK
+    slices/             RTK slices; not yet migrated ones are still switch-case
 ```
 
-There is no `@reduxjs/toolkit` in this project. Do not use `createSlice` or `createAsyncThunk`.
-
-When writing new Redux code, follow the existing switch-case pattern in the nearest similar slice.
+A small fix inside a legacy file may keep that file's style — do not half-migrate a domain.
 
 ## Redux — accessing state
 
@@ -126,7 +131,7 @@ src/
   selectors/      reselect selectors
   store/
     configureStore.ts store bootstrap
-    slices/           domain reducers (legacy switch-case pattern)
+    slices/           domain slices — RTK (see slice.md); some still legacy switch-case
   templates/      reusable presentational components
   views/          feature-level components
 ```
