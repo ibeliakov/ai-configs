@@ -10,10 +10,9 @@ Before writing a new utility, check here first.
 
 ## API client
 
-### `helpers/ClientApi.js`
+### `helpers/ClientApi.ts`
 
-Axios instance with auth headers, device ID, and token management.
-This is a **JavaScript file** — do not convert it to TypeScript.
+Axios instance with auth headers, device ID, and token management (on 401 it refreshes the applicant token once and retries the request).
 
 **Always import this, never import `axios` directly:**
 ```typescript
@@ -22,6 +21,10 @@ import ClientApi from '@src/helpers/ClientApi';
 const response = await ClientApi.get('/api/company/jobs/application/v2', { params });
 const response = await ClientApi.post('/api/...', body);
 ```
+
+### `helpers/deviceId.ts`
+
+`DEVICE_ID` — value of the `DeviceID` header sent by `ClientApi`. In the browser it is read from `localStorage['DeviceID']`; when missing, a `uuid` v4 is generated and stored there. On the server it is `00000000-0000-0000-0000-000000000000`. Do not change the `'DeviceID'` key.
 
 ### `helpers/forActions.ts`
 
@@ -62,9 +65,10 @@ Feature-specific API functions. Use these instead of calling ClientApi directly 
 localStorage helpers with JSON serialization:
 
 ```typescript
-import { getLocalStorage, parseJSON } from '@src/helpers/storage';
+import { getLocalStorage, getStringLocalStorage, parseJSON } from '@src/helpers/storage';
 
 getLocalStorage<MyType>('key')   // parses JSON, returns T | null
+getStringLocalStorage('key')     // raw string, returns string | null
 parseJSON<MyType>(string)        // parses a JSON string, returns T | null
 ```
 
@@ -103,6 +107,9 @@ String and text processing helpers. Check here before writing string manipulatio
 
 Formatting utilities (number, currency, display values).
 
+- `getCompensation({ min, max, currency })` — `$50,000.00 - $70,000.00`, a single bound, or `Not specified`
+- `getLocationShort({ city, state, country })` — `city, state, Country name`
+
 ### `helpers/object.ts`
 
 Object manipulation utilities.
@@ -110,6 +117,8 @@ Object manipulation utilities.
 ### `helpers/list.ts`
 
 List and array utilities.
+
+- `getNameFromListByCode(list, code)` — `name` of the `{ code, name }` item with that code, `''` when not found
 
 ### `helpers/deviceDetector.tsx`
 
@@ -158,5 +167,4 @@ import ErrorBoundary from '@src/helpers/componentsWrappers';
 
 | Path | Note |
 |------|------|
-| `helpers/ClientApi.js` | Axios instance — JS file, edit only for auth/header changes |
-| `helpers/Utils.js` | Legacy utility collection — do not modify |
+| `helpers/ClientApi.ts` | Axios instance — edit only for auth/header changes |
