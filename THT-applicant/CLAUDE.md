@@ -20,7 +20,7 @@ Read the relevant file before writing code:
 - **TypeScript** 5.3.3 — `strict: true`, use `type` not `interface`
 - **Redux** — legacy only: `redux` + `redux-thunk`, switch-case reducers. No `@reduxjs/toolkit`
 - **Ant Design** 3.26.5 — icons via `Icon` component, `Form.create()` HOC
-- **Axios** — via `helpers/ClientApi` wrapper (JS file), never import axios directly
+- **Axios** — via `helpers/ClientApi` wrapper, never import axios directly
 
 ## TypeScript conventions
 
@@ -30,6 +30,7 @@ Read the relevant file before writing code:
 - `LoadStatus = 'loading' | 'loaded' | 'not loaded' | 'error'` is the standard loading state type
 - tsconfig target is `es2022`
 - `@types/react` is 18 — `FC<Props>` has no implicit `children`, declare `children?: ReactNode` in Props when needed
+- `allowJs: false` — all source in `src/`, `components/`, `pages/`, `page_helpers/` is `.ts` / `.tsx`; never add new `.js` / `.jsx` files there (only root configs `next.config.js`, `postcss.config.js`, `.eslintrc.js` stay JS)
 - `antd-react18.d.ts` patches antd 3 typings for `@types/react` 18 (`React.SFC`, missing `children`) — extend it instead of casting; delete it with the antd 4 upgrade (sc-40233)
 
 ## Imports
@@ -78,7 +79,7 @@ Always use `useAppDispatch` — never raw `useDispatch`. For selectors, use `use
 
 - Always go through `helpers/ClientApi` (Axios instance with auth headers)
 - Error handling via `handleError` from `helpers/forActions`
-- `ClientApi` is a JavaScript file — import as: `import ClientApi from '@src/helpers/ClientApi'`
+- Import as: `import ClientApi from '@src/helpers/ClientApi'`
 - Feature-specific API functions live in `src/api/` — use those instead of calling ClientApi directly in components
 
 ## Ant Design
@@ -122,7 +123,8 @@ src/
   api/              feature-specific API modules
   constants/        app-wide constants, path strings
   helpers/
-    ClientApi.js    Axios instance with auth headers (JS, not TS)
+    ClientApi.ts    Axios instance with auth headers + 401 token refresh
+    deviceId.ts     stable DeviceID header value (localStorage 'DeviceID')
     forActions.ts   handleError helper
     storage.ts      localStorage helpers
     regexp.tsx      all project regex patterns
@@ -161,6 +163,5 @@ Data flows down, events bubble up.
 
 | Path | Description |
 |---|---|
-| `src/helpers/ClientApi.js` | Axios instance — JS file, edit only for auth/header changes |
-| `src/helpers/Utils.js` | Legacy utility collection |
+| `src/helpers/ClientApi.ts` | Axios instance — edit only for auth/header changes |
 | `src/store/configureStore.ts` | Store bootstrap — do not restructure |
