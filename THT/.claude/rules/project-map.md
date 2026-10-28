@@ -43,7 +43,7 @@ src/
 
 **Стек:**
 - React 18.2 + TypeScript 3.7.5 (strict)
-- Redux: **тільки legacy** (`redux` + `redux-thunk`). RTK заборонено
+- Redux: змішаний — legacy (`redux` + `redux-thunk`) + RTK (`@reduxjs/toolkit` 1.9). Новий код — тільки RTK (`THT-management/.claude/rules/slice.md`)
 - Ant Design 3.26.5 + `Form.create()` HOC
 - React Router v5 (централізований `src/pages/routeItems.js`)
 - Axios через `helpers/ClientApi` (JS файл)
@@ -56,7 +56,7 @@ src/
   actions/        redux-thunk action creators
   reducers/       switch-case reducers
   store/
-    slices/       legacy pattern — switch-case, НЕ RTK
+    slices/       RTK (createSlice + createAsyncThunk); ще не мігровані — switch-case до sc-40219
   pages/          сторінки + routeItems.js
   helpers/        ClientApi (JS), утіліти
 ```
@@ -64,7 +64,7 @@ src/
 **Особливості:**
 - `USER_IS_AUTH` / `USER_IS_NOT_AUTH` / `USER_IS_ADMIN` — константи прав доступу
 - Ant Design 3: іконки через `Icon` компонент, `Form.create()` замість хуків
-- Немає `@reduxjs/toolkit` — не додавати
+- Новий Redux-код — `createSlice` + `createAsyncThunk` за `slice.md`, еталон `store/slices/jobTypes`; нові switch-case reducers не додавати
 
 ---
 

@@ -7,7 +7,7 @@
 | Папка | Роль | Порт (local) | Стек |
 |---|---|---|---|
 | `THT-myAccount/` | Особистий кабінет клієнта | `localhost:3000` | React 18 + RTK + AntD 4 |
-| `THT-management/` | Адмінка / менеджмент (внутрішній інструмент) | `localhost:3030` | React 18 + Redux legacy + AntD 3 |
+| `THT-management/` | Адмінка / менеджмент (внутрішній інструмент) | `localhost:3030` | React 18 + Redux legacy + RTK + AntD 3 |
 | `THT-applicant/` | Апліканська частина, SSR | `localhost:3080` | Next.js 13 + Redux legacy + AntD 3 |
 | `THT-mobile-app/` | Мобільний застосунок | — (Expo, запуск `expo start`) | React Native 0.81 + Expo 54 + RTK |
 | `THT-html-reports/` | Переглядач звітів (статика + Node сервер) | `localhost:8080` | Node.js server |

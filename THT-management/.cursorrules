@@ -8,7 +8,7 @@
 
 ## Project overview
 
-React 18 + TypeScript 4.9.5 SPA. Legacy Redux codebase: `redux` + `redux-thunk`, switch-case reducers throughout (including the `store/slices/` folder — no `@reduxjs/toolkit`). UI: Ant Design 3.26.5. React Router v5. Axios via `helpers/ClientApi` (JS file).
+React 18 + TypeScript 4.9.5 SPA. Redux: `@reduxjs/toolkit` 1.9 on top of `redux` 4 + `redux-thunk` (same as myAccount) — all new Redux code is RTK, legacy switch-case code (`src/actions`, `src/reducers`, not yet migrated `store/slices`) is being migrated. UI: Ant Design 3.26.5. React Router v5. Axios via `helpers/ClientApi` (JS file).
 
 ---
 
@@ -68,20 +68,27 @@ ComponentName/
 
 ---
 
-## Redux — legacy only
+## Redux — RTK for all new code
 
-There is **no `@reduxjs/toolkit`** in this project. All Redux code uses the legacy pattern:
+All new Redux code uses Redux Toolkit, per `.claude/rules/slice.md`. Reference slice: `src/store/slices/jobTypes`.
 
 ```
-src/
-  actions/         action creators (redux-thunk)
-  reducers/        switch-case reducers
-  store/slices/    domain reducers — also switch-case, NOT RTK slices
+store/slices/<domain>/
+  index.ts       public API — consumers import only from the folder
+  slice.ts       createSlice — `name` equals the folder name; Immer mutations; builder `extraReducers`
+  actions.ts     createAsyncThunk<Returned, Arg, { state: RootState }>; inline API URLs;
+                 handleError(error) then rejectWithValue(error); `condition` instead of busy flags
+  selectors.ts   plain selectors with explicit return types + createSelector
+  types.ts       domain types, `LoadStatus` for async state
+  hooks.ts       hooks with explicit return types (or hooks/ for several)
 ```
 
-When writing new Redux code, follow the existing switch-case reducer + action constants pattern.
+- Register a new slice reducer in `src/reducers/index.ts`.
+- No `runWithAccessData` in management — pass `company_id` / `company_group_id` as thunk args.
+- Action files do not call `store.dispatch`; plain API functions only return data.
+- The store stays on `createStore` + `redux-thunk` (`store/configureStore.ts`).
 
-Do not use `createSlice`, `createAsyncThunk`, or any RTK APIs.
+Legacy code (`src/actions`, `src/reducers`, not yet migrated `store/slices`) is migrated in sc-40219 / sc-40220. A small fix inside a legacy file may keep that file's style.
 
 ---
 
@@ -186,7 +193,7 @@ Data flows down, events bubble up.
 - Import `useSelector`/`useDispatch` directly — use typed wrappers from `src/hooks/`
 - Directly import `axios` — use `ClientApi`
 - Use `@ant-design/icons` — use `Icon` from `antd` (v3)
-- Use `createSlice`, `createAsyncThunk`, or any `@reduxjs/toolkit` API
+- Add new switch-case reducers or `createAction` constants — new Redux code is RTK (`createSlice` + `createAsyncThunk`)
 - Add `interface` — use `type`
 - Add routes directly to `Router.js` — use `routeItems.js`
 - Modify `helpers/authWrapper.js` or `helpers/Utils.js` without explicit instruction
