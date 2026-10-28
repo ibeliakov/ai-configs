@@ -4,7 +4,7 @@
 
 React Native recruitment SaaS app (candidate management, job posts, real-time messaging).
 
-**Stack**: React Native 0.81.5, Expo 54, TypeScript 5.9.2, Redux Toolkit 2.10.1, Ant Design React Native 5.4.3, Expo Router 6, Axios 1.13.2
+**Stack**: React Native 0.81.5, Expo 54, TypeScript 5.9.2, Redux Toolkit 2.10.1, Ant Design React Native 5.4.3, Expo Router 6, Axios 1.20.0 (exact pin)
 
 ## Language
 
