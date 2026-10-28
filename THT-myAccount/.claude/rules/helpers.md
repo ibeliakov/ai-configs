@@ -158,6 +158,8 @@ Job post utilities:
 | `getNotificationRecipients(notifications, type)` / `setNotificationRecipients(notifications, type, userIds)` / `removeNotificationType(notifications, type)` | Read, replace or drop one type's recipients in the job's `notifications` |
 | `addRecipientToNotifications(notifications, userId)` / `removeRecipientFromNotifications(notifications, userId)` | Add a manager to every enabled type / remove them from all types (keeps the form in sync with the Managers section) |
 | `sanitizeNotifications(notifications, managerIds)` | Keep only recipients that are managers — the back end rejects others with 400 |
+| `getJobPostLocation({ jobpost_city, jobpost_state, jobpost_country })` | Location line of a job post as `city, state, country` from the parts that are present (nulls allowed), or `Remote` |
+| `applyOwnNotificationTypes(notifications, { user_id, job_notification_types, user_notification_types })` | The job's `notifications` after one user saved their own set: one entry per type of `job_notification_types`, that user added to or removed from each, other recipients kept |
 
 ### `urlBuilders.ts`
 Scoped links (the `/c/…` or `/cg/…/c/…` prefix comes from `buildPath`):
