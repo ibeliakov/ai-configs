@@ -88,6 +88,7 @@ Always use `useAppDispatch` — never raw `useDispatch`. For selectors, use `use
 - Import icons from `antd` using the `Icon` component: `import { Icon } from 'antd'` then `<Icon type="close" />`
 - Forms: use `Form.create()` HOC pattern (v3 style)
 - Do not use `@ant-design/icons` — that package belongs to Ant Design v4+
+- `styles/global.scss` turns every spinning `<Spin>` into a fixed full-page overlay — use `<Spin>` only as a page or section loader; for an inline indicator next to text use `<Icon type="loading" />`
 
 ## Prettier / ESLint
 

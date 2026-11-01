@@ -71,6 +71,10 @@ Feature-specific API functions. Use these instead of calling ClientApi directly 
 | `internetSpeed.ts` | Internet speed detection |
 | `mediaStoreManager.ts` / `mediaStoreManagerAWS.ts` | Media upload management |
 | `deviceTrackingApi.ts` | `trackDeviceEventAPI(goal)` — fire-and-forget GET to the device-tracking endpoint; `goal` is serialised into `request_goal_id` (used for media-access telemetry on the interview page) |
+| `assessmentSittingApi.ts` | Monitored assessment sitting (THT-docs `docs/api/assessment-monitoring.md` §6): `openSittingAPI`, `verifyTurnstileAPI`, `setupSittingAPI`, `newPairingCodeAPI`, `heartbeatSittingAPI`, `closeSittingAPI`; `closeSittingOnUnloadAPI` for `pagehide` (keepalive `fetch`, `sendBeacon` fallback) |
+| `assessmentPairingApi.ts` | Paired-phone page (same contract, §8): `checkPairingCodeAPI`, `claimPairingCodeAPI`, `phoneHeartbeatAPI`, `phoneContinueAPI`; `phoneHeartbeatOnHideAPI` sends `visible: false` on hide / `pagehide` the same unload-safe way |
+
+Requests from the browser go through the same-origin proxy `pages/api/[...all].ts`, so a relative `/api/...` URL also works for `navigator.sendBeacon`.
 
 ---
 
@@ -89,6 +93,40 @@ parseJSON<MyType>(string)        // parses a JSON string, returns T | null
 ```
 
 Never call `localStorage.getItem` / `JSON.parse` directly — use these helpers.
+
+sessionStorage has the same readers (`getSessionStorage<T>`, `getStringSessionStorage`) plus `setStringSessionStorage(key, value)` and `removeSessionStorage(key)`.
+
+### `helpers/safeStorage.ts`
+
+`safeStorageCall(action, fallback)` — runs a storage call and returns `fallback` (with a `console.warn`) when the browser throws: blocked site data, private mode, quota. Wrap storage access that must never break a flow:
+
+```typescript
+import { safeStorageCall } from '@src/helpers/safeStorage';
+
+safeStorageCall(() => getStringSessionStorage(key), null);
+```
+
+### `helpers/sittingToken.ts` / `helpers/phoneSession.ts`
+
+Assessment monitoring state kept in sessionStorage through `safeStorageCall`:
+
+- `getStoredSittingToken` / `storeSittingToken` / `clearStoredSittingToken(assignmentId)` — the last sitting token per assignment, sent back as `previous_sitting_token` after a reload
+- `getStoredPhoneSession` / `storePhoneSession` / `clearStoredPhoneSession(code)` — the paired phone's `phone_token` and page info per pairing code, so a reload does not claim the code again
+
+### `helpers/sittingMedia.ts`
+
+Registry of the media streams a sitting keeps open: `setSittingStream('camera' | 'screen', stream | null)` (stops the stream it replaces), `getSittingStream(kind)`, `stopSittingStreams()`.
+
+### `helpers/turnstile.ts`
+
+`loadTurnstile(timeoutMs)` — injects the Cloudflare Turnstile script once (`render=explicit`) and resolves `window.turnstile`; rejects on load error or timeout so the caller can fall back to `turnstile_unavailable`. Typings for `window.turnstile` live in `decs.d.ts`.
+
+### `helpers/displayCount.ts` / `helpers/screenShare.ts`
+
+- `getDisplayCount()` — `1` when `screen.isExtended` is `false`, otherwise `getScreenDetails().screens.length`; `null` when the browser cannot tell
+- `canConfirmEntireScreen()` — the browser supports the `displaySurface` constraint, so an entire-screen share can be verified
+- `requestScreenShare()` — `getDisplayMedia` asking for the entire screen; returns the stream and `entire_screen | window | tab | null` from the track's `displaySurface`
+- `isUserCancelled(error)` — the candidate closed the browser's share picker
 
 ### `helpers/regexp.tsx`
 
@@ -141,6 +179,8 @@ List and array utilities.
 Device detection helpers (mobile, tablet, desktop).
 
 `checkIsInAppBrowser()` — true for in-app browsers that usually cannot use the camera (iOS WKWebView without the Safari token, Google app, Facebook/Instagram/LinkedIn/Indeed apps, Android WebView).
+
+Assessment sitting device report: `getSittingDeviceType()` (`computer | phone | tablet`; an iPad presenting as a Mac with touch counts as `tablet`), `getSittingDeviceInfo()` (user agent, screen size, touch), `getSittingCapabilities()` (camera, screen share, display count, wake lock).
 
 ### `helpers/mediaAccess.ts`
 
