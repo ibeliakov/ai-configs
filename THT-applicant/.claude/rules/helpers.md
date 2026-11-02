@@ -92,7 +92,7 @@ getStringLocalStorage('key')     // raw string, returns string | null
 parseJSON<MyType>(string)        // parses a JSON string, returns T | null
 ```
 
-Never call `localStorage.getItem` / `JSON.parse` directly — use these helpers.
+Never call `localStorage.getItem` / `JSON.parse` directly — use these helpers. To write a string to localStorage use `setStringLocalStorage(key, value)`.
 
 sessionStorage has the same readers (`getSessionStorage<T>`, `getStringSessionStorage`) plus `setStringSessionStorage(key, value)` and `removeSessionStorage(key)`.
 
