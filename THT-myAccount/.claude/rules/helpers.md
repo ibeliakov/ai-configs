@@ -229,6 +229,7 @@ getPopupContainer   // AntD Select prop — keeps dropdown inside parent, preven
 stopPropagationOnly // e.stopPropagation() only — use on wrappers around AntD Modal/portals: preventDefault there breaks checkboxes inside
 stopPropagation     // stopPropagationOnly + e.preventDefault()
 preventDefaultDrag  // drag event stopper
+keepScrolledIntoView // (element, duration = 3000) → stop(); scrolls the element into view and again whenever a sibling section above it resizes (late-loading content), until `duration`, the user's own wheel/touch/key scroll, or stop()
 ```
 
 ### `ClientApi.ts`
