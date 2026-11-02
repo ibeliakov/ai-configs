@@ -109,6 +109,19 @@ Contains rule builders for: email, password, phone, URL, postal code, company na
 
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
 
+### `schedulingLinkFields.ts`
+Shared by the scheduling link editor and the scheduling-link template editor, so both treat rich text and failed saves the same way:
+
+| Function | Purpose |
+|----------|---------|
+| `richTextToPayload(value)` / `plainTextToPayload(value)` | Quill HTML with token chips → the string the back end stores (styled email HTML / plain text) |
+| `interviewDetailsToPayload(details)` / `interviewDetailsToForm(details)` | Round-trip of `location_value`, `interview_name`, `interview_description` between the API and the form |
+| `interviewDetailsWithoutRichText(details)` | First-pass form values with the rich-text fields blanked, so Quill mounting does not mark the form dirty |
+| `scrollToFirstFormError(form, error)` | Smooth scroll to the first field of an AntD `validateFields` rejection |
+| `handleSchedulingSaveError(form, error)` | The `catch` of an editor's Save: validation errors → toast *Please fix the highlighted fields before saving.* and a scroll on the next tick (after collapsed blocks expand); a superseded validation (`errorFields: []`) → nothing; an axios error → nothing (`handleError` already toasted); anything else → toast *Couldn't save your changes. Please try again.* |
+
+Never leave the `catch` of a form Save empty or scroll-only: a Save that ends without a request must always tell the user why. To open a collapsed block that holds an invalid field, render `templates/FormErrorWatcher` (`names`, `onError`) inside the form.
+
 ### `image.ts`
 Images that go through the rich-text editor (`templates/EmailEditor`):
 
