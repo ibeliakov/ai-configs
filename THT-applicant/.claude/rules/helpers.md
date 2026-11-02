@@ -71,7 +71,7 @@ Feature-specific API functions. Use these instead of calling ClientApi directly 
 | `internetSpeed.ts` | Internet speed detection |
 | `mediaStoreManager.ts` / `mediaStoreManagerAWS.ts` | Media upload management |
 | `deviceTrackingApi.ts` | `trackDeviceEventAPI(goal)` — fire-and-forget GET to the device-tracking endpoint; `goal` is serialised into `request_goal_id` (used for media-access telemetry on the interview page) |
-| `assessmentSittingApi.ts` | Monitored assessment sitting (THT-docs `docs/api/assessment-monitoring.md` §6): `openSittingAPI`, `verifyTurnstileAPI`, `setupSittingAPI`, `newPairingCodeAPI`, `heartbeatSittingAPI`, `closeSittingAPI`; `closeSittingOnUnloadAPI` for `pagehide` (keepalive `fetch`, `sendBeacon` fallback) |
+| `assessmentSittingApi.ts` | Monitored assessment sitting (THT-docs `docs/api/assessment-monitoring.md` §6): `openSittingAPI`, `verifyTurnstileAPI`, `setupSittingAPI`, `newPairingCodeAPI`, `heartbeatSittingAPI`, `sendSittingEventsAPI`, `closeSittingAPI`; `closeSittingOnUnloadAPI` and `sendSittingEventsOnUnloadAPI` for a hidden page or `pagehide` (keepalive `fetch`, `sendBeacon` fallback) |
 | `assessmentPairingApi.ts` | Paired-phone page (same contract, §8): `checkPairingCodeAPI`, `claimPairingCodeAPI`, `phoneHeartbeatAPI`, `phoneContinueAPI`; `phoneHeartbeatOnHideAPI` sends `visible: false` on hide / `pagehide` the same unload-safe way |
 
 Requests from the browser go through the same-origin proxy `pages/api/[...all].ts`, so a relative `/api/...` URL also works for `navigator.sendBeacon`.
@@ -112,6 +112,10 @@ Assessment monitoring state kept in sessionStorage through `safeStorageCall`:
 
 - `getStoredSittingToken` / `storeSittingToken` / `clearStoredSittingToken(assignmentId)` — the last sitting token per assignment, sent back as `previous_sitting_token` after a reload
 - `getStoredPhoneSession` / `storePhoneSession` / `clearStoredPhoneSession(code)` — the paired phone's `phone_token` and page info per pairing code, so a reload does not claim the code again
+
+### `helpers/sittingItemTime.ts`
+
+Per-question time a monitored sitting reports on `answer` as `paused_ms` / `away_ms`: `startItemTime(itemKey)` when a question is shown (no-op for the same key), `setItemTimeMode('active' | 'paused' | 'away')` (pause wins over away), `readItemTime()` returns both totals up to now, `resetItemTime()`.
 
 ### `helpers/sittingMedia.ts`
 
