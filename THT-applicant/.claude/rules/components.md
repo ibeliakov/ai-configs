@@ -116,6 +116,32 @@ They are imported by the parent — never the other way around.
 - Inline styles only for dynamic CSS values (e.g. `style={{ width: value }}`)
 - Do not override Ant Design styles with inline styles — use Less variables
 
+## Candidate flow UI kit
+
+Candidate-facing flows (the assessment today; the one-way interview, application form and to-do list in their redesigns) are built from the shared templates below. Use them instead of writing local headings, buttons, status screens or panels; add a variant to a template when a flow needs one.
+
+| Template | Use for |
+|---|---|
+| `CandidateFlowLayout` | Page shell: top bar (back button, progress, `status` and `actions` slots, text size), scrolling content card (`variant="flat"` for chat), fixed footer slot, Powered by. `scrollKey` resets the scroll on page changes |
+| `CandidateFlowFooter` | Sticky footer actions (`note`, `secondary`, `primary`), rendered through a portal into the layout |
+| `FlowButton` | Buttons: `primary`, `secondary`, `danger`, `bar`, `link`; `size="medium"` (44 px) inside cards |
+| `FlowHeading` | Eyebrow, title, lead (`size` `page`, `dialog`, `section`) |
+| `FlowStatus` / `FlowLoading` / `FlowDialog` | Status screens (icon or badge in a circle, title, text, actions), loading states, modal dialogs |
+| `ChoiceCard` / `ChoiceCardGroup` / `ChoiceMark` | Radio and checkbox options as cards (`row` or image `tile`, icon, description) |
+| `StepItem` / `StepList` | Checklists and step rows with a status marker |
+| `Callout` | Panels: `neutral`, `brand`, `warning`, `danger`, with title, actions, close |
+| `FactList` / `NumberedList` | Icon facts or rules; numbered steps |
+| `TroubleshootGuide` | "Fix it step by step" help: steps, actions, optional collapse and problem chips |
+| `MediaStage` | Camera, video or image frame with a live/recording chip and an overlay |
+| `DemographicSurveyFields` | The demographic survey questions (controlled `value`/`onChange`, `texts` from the caller) |
+
+Styles for these flows use the `$candidate_*` tokens from `styles/custom/variables.scss` and the mixins from `styles/custom/_candidate-flow.scss` (`flow-sm`, `flow-focus`, `flow-card-padding`, `flow-eyebrow`, `flow-title`, `flow-lead`, `flow-text`, `flow-note`), imported right after the variables:
+
+```scss
+@import 'styles/custom/variables';
+@import 'styles/custom/candidate-flow';
+```
+
 ## Redux
 
 Always use typed dispatch — never raw `useDispatch`:
