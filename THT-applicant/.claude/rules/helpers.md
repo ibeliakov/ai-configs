@@ -181,6 +181,7 @@ Object manipulation utilities.
 List and array utilities.
 
 - `getNameFromListByCode(list, code)` — `name` of the `{ code, name }` item with that code, `''` when not found
+- `toggleExclusiveSelection(selected, value, exclusive)` — multi-select toggle where the `exclusive` values clear every other choice and are cleared by any other choice (assessment `mutual_exclusive` answers, the survey's veteran `NOT_APPLICABLE`)
 
 ### `helpers/deviceDetector.tsx`
 
@@ -205,6 +206,10 @@ import {
 ```
 
 `MediaAccessStatus`: `ok | pending | dismissed | blocked_camera | blocked_microphone | blocked_both | system_blocked | no_device | busy | ios_audio_reset | in_app_browser | unsupported`.
+
+### `helpers/mediaAccessGuide.ts`
+
+`getMediaAccessGuide(status, cameraOnly?)` — the troubleshooting copy for a `MediaAccessStatus`: `{ title, steps, recheckLabel?, reload?, copyLink? }` with steps for the detected browser and OS, `null` for `ok` / `pending`. Shared by `templates/MediaAccessProblem` (one-way interview) and the assessment camera step (`templates/TroubleshootGuide`).
 
 ### `helpers/clipboard.ts`
 
@@ -246,6 +251,8 @@ import ErrorBoundary from '@src/helpers/componentsWrappers';
 | `useCustomHeaderFooter` | `hooks/useCustomHeaderFooter.ts` | Custom header/footer settings |
 | `useTrackCode` | `hooks/useTrackCode.ts` | Tracking/analytics utilities |
 | `useRerenderKey` | `hooks/useRerenderKey.ts` | Force re-render key |
+| `useTextSize` | `hooks/useTextSize.ts` | Candidate text size (`normal`, `larger`, `largest`) stored in `localStorage['candidate_text_size']`; used by `templates/CandidateFlowLayout` |
+| `useCopyLink` | `hooks/useCopyLink.ts` | Copies the current page link: `{ copied, copyLink }`, `copied` resets after 2 s |
 
 ---
 
