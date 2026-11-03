@@ -57,6 +57,7 @@ UTC↔local conversion for scheduling:
 |----------|---------|
 | `timeToMinutes(time)` | "HH:MM" → minutes from midnight |
 | `minutesToTimeValue(minutes)` | Minutes from midnight → "HH:MM:SS" (inverse of `timeToMinutes`) |
+| `formatClockDuration(seconds)` | Seconds → stopwatch text "0:35", "12:05", "1:02:09" (rounds, clamps negatives to 0); for short durations such as monitoring flags. For "14 min" / "1 hr 5 min" use `formatDuration(minutes)` from `recurrence.ts` |
 | `utcSlotToLocal(slot, tz)` | UTC time slot → local timezone |
 | `convertFreeRangesToTimezone(ranges, tz)` | Convert availability ranges, handles cross-midnight splits |
 
@@ -241,6 +242,7 @@ getPopupContainer   // AntD Select prop — keeps dropdown inside parent, preven
 stopPropagationOnly // e.stopPropagation() only — use on wrappers around AntD Modal/portals: preventDefault there breaks checkboxes inside
 stopPropagation     // stopPropagationOnly + e.preventDefault()
 preventDefaultDrag  // drag event stopper
+keepScrolledIntoView // (element, duration = 3000) → stop(); scrolls the element into view and again whenever a sibling section above it resizes (late-loading content), until `duration`, the user's own wheel/touch/key scroll, or stop()
 ```
 
 ### `ClientApi.ts`

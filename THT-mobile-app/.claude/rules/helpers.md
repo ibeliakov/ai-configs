@@ -113,6 +113,26 @@ formatDateTime(isoString)  // "Dec 15, 2024 10:30 AM"
 or a full ISO timestamp; only then show it through `useDateFormat`'s `getFormattedDate`, otherwise
 show the raw answer.
 
+`formatTimeOfDay(isoString)` — "3:25 PM" in the device time zone (a string without a zone suffix
+is read as UTC, like `formatDateTimeFull`). `formatCountdown(seconds)` — "0:35", "12:05".
+
+### `utils.ts`
+
+`pluralize(count, word)` — "1 flag", "3 flags". Shared: do not declare a local copy.
+
+### `assessmentMonitoring.ts`
+
+Assessment monitoring (epic 45702) read on the candidate Assessments tab:
+
+```typescript
+getMeasuresUnavailableNote(sittings) // "Taken on a phone, so screen sharing and phone pairing weren't available." or null
+getSittingTitles(sittings)           // { [sitting_id]: "Sitting N" }, sittings come newest first
+formatSittingLength(sitting)         // "In progress" | "24 min" | "1 hr 5 min" | null when the length is unknown
+parseExemptionActivityNote(note)     // monitoring_exemption_changed related_note → both switches, or null
+```
+
+Flag, device and snapshot-source labels live in `src/constants/assessmentMonitoring.ts`.
+
 ### `emailFormatting.ts`
 
 Email content utilities (subject/body preparation for email send flows).
