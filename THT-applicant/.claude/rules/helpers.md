@@ -127,11 +127,15 @@ Registry of the media streams a sitting keeps open: `setSittingStream('camera' |
 
 ### `helpers/turnstile.ts`
 
-`loadTurnstile(timeoutMs)` — injects the Cloudflare Turnstile script once (`render=explicit`) and resolves `window.turnstile`; rejects on load error or timeout so the caller can fall back to `turnstile_unavailable`. Typings for `window.turnstile` live in `decs.d.ts`.
+`loadTurnstile(timeoutMs)` — injects the Cloudflare Turnstile script once (`render=explicit`) and resolves `window.turnstile`; rejects on load error or timeout so the caller can report `turnstile_unavailable`. A later call after a rejection tries again. Typings for `window.turnstile` live in `decs.d.ts`.
+
+`isTurnstileRequired(plan)` — the sitting's `monitoring.turnstile_check` is `true`: a check that can't run blocks setup instead of passing. For the widget itself use `hooks/useTurnstileWidget`.
 
 ### `helpers/displayCount.ts` / `helpers/screenShare.ts`
 
 - `getDisplayCount()` — `1` when `screen.isExtended` is `false`, otherwise `getScreenDetails().screens.length`; `null` when the browser cannot tell
+- `hasExtraDisplay()` — `screen.isExtended === true`, without the `getScreenDetails` permission prompt
+- `watchDisplays(onChange, pollMs)` — calls `onChange(extended)` now, every `pollMs` and on the `screen` `change` event; returns the unsubscribe function; a no-op where `screen.isExtended` isn't available
 - `canConfirmEntireScreen()` — the browser supports the `displaySurface` constraint, so an entire-screen share can be verified
 - `requestScreenShare()` — `getDisplayMedia` asking for the entire screen; returns the stream and `entire_screen | window | tab | null` from the track's `displaySurface`
 - `isUserCancelled(error)` — the candidate closed the browser's share picker
@@ -253,6 +257,7 @@ import ErrorBoundary from '@src/helpers/componentsWrappers';
 | `useRerenderKey` | `hooks/useRerenderKey.ts` | Force re-render key |
 | `useTextSize` | `hooks/useTextSize.ts` | Candidate text size (`normal`, `larger`, `largest`) stored in `localStorage['candidate_text_size']`; used by `templates/CandidateFlowLayout` |
 | `useCopyLink` | `hooks/useCopyLink.ts` | Copies the current page link: `{ copied, copyLink }`, `copied` resets after 2 s |
+| `useTurnstileWidget` | `hooks/useTurnstileWidget.ts` | Cloudflare Turnstile widget in a container ref: `{ status: 'loading' \| 'ready' \| 'unavailable', retry }`; calls `onToken(token)` and `onUnavailable()` (no site key, script load error or timeout, widget error, unsupported browser); `retry` resets the widget or reloads the script when it never loaded. Used by the assessment setup and the paired phone page |
 
 ---
 
