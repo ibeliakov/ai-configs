@@ -31,6 +31,14 @@ String and HTML processing. Most-used functions:
 | `isRichTextEmpty(html)` | `true` for a missing value or editor markup with no visible text and no image, iframe or video (`<p><br></p>`, `<p>&nbsp;</p>`); the one emptiness check for Quill values |
 | `convertTextToNote(text, users)` | `AddNote` field text → the note that is sent: trimmed, `@full name email` mentions and `(::start old::)` mentions of former users turned into `<span data-id="ID">Name</span>`; the inverse of `convertNoteToText`. Measure note length on its result |
 
+### `text.ts`
+Clipboard:
+
+| Function | Purpose |
+|----------|---------|
+| `copyTextToBuffer(text, message?)` | Copy to the clipboard and show a success toast (default *Copied*) |
+| `writeTextToClipboard(text)` | Copy to the clipboard without a toast — for controls that confirm the copy in place (a Copy → Copied tooltip). Rejects when the browser refuses clipboard access; the caller shows the error |
+
 ### `date.ts`
 Date formatting and timezone handling:
 
