@@ -55,6 +55,7 @@ Date formatting and timezone handling:
 | `getMeetingDateFormatted(date)` | Meeting-specific display format |
 | `getTimePeriod(from, to)` | Human-readable date range |
 | `getActiveDays(start, end)` | Days between activation and archival |
+| `compareDatesNullFirst(first, second)` | Comparator for two ISO date strings where a missing date (`null` / `undefined`) sorts first — for `Array.sort` or an AntD column `sorter` (AntD reverses it for descending, so missing dates end up last) |
 | `disabledPastDateAndCurrent()` | AntD DatePicker disabledDate helper |
 | `getTodayInUsCentral()` | Today's calendar date in `America/Chicago` as a local moment — every Indeed campaign date is US Central |
 
@@ -227,6 +228,13 @@ OAuth hand-off from myAccount to the Discovered mobile app (`/access-to/:instanc
 
 The page only forwards `code` (or the provider `error`) to the app — the app calls `/api/auth/login/social` itself so the refresh token is bound to its own `DeviceID`.
 
+### `aiToolsAuthorization.ts`
+OAuth request of an AI tool (User MCP):
+
+| Function | Purpose |
+|----------|---------|
+| `getAiToolsAuthorizationRequest(search)` | The authorization request an AI tool put in the query string (`client_id`, `redirect_uri`, `response_type`, `scope`, `resource`, `code_challenge`, `code_challenge_method`, optional `state`), or `null` when a required parameter is missing. Values are passed on untouched — `client_id` can be an HTTPS URL of up to 512 characters. Used by the approval page (`/ai-tools/authorize`) and by the root fallback in `src/index.tsx` |
+
 ### `wrapShortCodes.ts`
 Token system for email/SMS templates:
 
@@ -304,6 +312,7 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 | `useFile` / `useFiles` | `hooks/useFile.ts` | File upload handling |
 | `useWindowOnEvent` | `hooks/useWindowOnEvent.ts` | `window.addEventListener` with cleanup |
 | `useSmsConsentBlock` | `hooks/useSmsConsentBlock.ts` | SMS consent block for one candidate (`null` = texting allowed) |
+| `useUserAccessAvailable` | `hooks/useUserAccessAvailable.ts` | Whether a personal access feature (User API, User MCP) is available to the current user: the current company has the feature, the user has no `disable_*` denial (global or for this company), is assigned to the company as Admin, Editor or Viewer, and is not in group mode. Takes the three feature lists as module-level constants; wrapped by `useUserApiKeyAvailable` (`store/slices/userApiKey`) and `useAiToolsAvailable` (`store/slices/aiTools`) — add a wrapper, do not copy the rule |
 | `useNotificationTypes` | `hooks/useNotificationTypes.ts` | Job post notification type catalogue from static data, filtered by the company's services (`{ types, loaded }`) |
 | `useBeforeUnloadPrompt` | `hooks/useBeforeUnloadPrompt.ts` | Browser's native leave-page dialog on refresh or tab close while `when` is true; registers no listener otherwise |
 
