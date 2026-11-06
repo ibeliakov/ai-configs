@@ -44,6 +44,10 @@ Google / Microsoft SSO via the myAccount `/access-to/{provider}` page. myAccount
 | `getOAuthRedirectUri(provider)` | `${EXPO_PUBLIC_MY_ACCOUNT_URL}/access-to/{provider}` — the same value must be sent to the provider and to `/api/auth/login/social` |
 | `getOAuthErrorMessage(provider, error?)` | Toast text for a cancelled (`access_denied`) or failed sign-in |
 
+### `navigation.ts`
+
+**`goToRoot()`** — back to the root of the stack: `dismissAll()` when the stack can go back, otherwise `replace('/')` (cold start from a deep link). Use it instead of `router.replace('/')` / `router.dismissTo('/')` when leaving a root-level route (OAuth callback, shared-list gate). Both `app/index.tsx` and `app/(tabs)/_layout.tsx` render `AuthScreen` when signed out, so putting `index` on top of `(tabs)` mounts two auth screens: every 2FA screen then requests its own PIN (sc-46454). It checks `canGoBack()`, which reads the navigation ref. `canDismiss()` reads the router store, which is still stale in a screen's first effect.
+
 ---
 
 ## Error handling
