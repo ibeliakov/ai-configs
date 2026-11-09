@@ -149,6 +149,8 @@ const MyForm = Form.create<Props>()(({ form }: Props) => {
 });
 ```
 
+rc-form gives the control rendered by `getFieldDecorator` a `ref` and clears the field value when that ref turns `null`. A function component used as a field control must forward the ref to an element that lives as long as the component — take `ref` as the second argument and export `forwardRef(Component)` (see `templates/SelectSearchAndShowMore`, `templates/EmailEditor`).
+
 ### Date and time pickers — `templates/DatePicker`
 
 Never import `DatePicker`, `TimePicker` or `Calendar` from `antd` (ESLint `no-restricted-imports` blocks it).
