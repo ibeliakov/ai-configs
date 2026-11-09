@@ -20,6 +20,7 @@ Read the relevant file before writing code:
 - **TypeScript** 5.3.3 — `strict: true`, use `type` not `interface`
 - **Redux** — legacy only: `redux` + `redux-thunk`, switch-case reducers. No `@reduxjs/toolkit`
 - **Ant Design** 3.26.5 — icons via `Icon` component, `Form.create()` HOC
+- **Dates** — `dayjs` via `@src/helpers/dayjs` (never `moment` / `moment-timezone`; moment is only inside `@src/helpers/momentAdapter` for antd 3 pickers). Pickers and calendars come from `@components/templates/DatePicker`
 - **Axios** — via `helpers/ClientApi` wrapper, never import axios directly
 
 ## TypeScript conventions
@@ -85,6 +86,7 @@ Always use `useAppDispatch` — never raw `useDispatch`. For selectors, use `use
 ## Ant Design
 
 - Import components from `antd` directly: `import { Button, Form, Table } from 'antd'`
+- Exception: `DatePicker`, `RangePicker`, `Calendar` come from `@components/templates/DatePicker` (Dayjs in and out) — see [components.md](.claude/rules/components.md)
 - Import icons from `antd` using the `Icon` component: `import { Icon } from 'antd'` then `<Icon type="close" />`
 - Forms: use `Form.create()` HOC pattern (v3 style)
 - Do not use `@ant-design/icons` — that package belongs to Ant Design v4+
@@ -130,7 +132,9 @@ src/
     storage.ts      localStorage helpers
     regexp.tsx      all project regex patterns
     rulesFileds.ts  AntD Form validation rule builders
-    date.ts         date formatting utilities
+    dayjs.ts        configured dayjs instance — the only way to import dayjs
+    date.ts         server date parsing, formatting, time zones
+    momentAdapter.ts  Dayjs <-> moment for antd 3 pickers (templates/DatePicker only)
     string.ts       string processing utilities
     formated.ts     formatting utilities
     object.ts       object utilities

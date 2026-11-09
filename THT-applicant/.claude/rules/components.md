@@ -184,6 +184,39 @@ const MyForm = Form.create<Props>()(({ form }: Props) => {
 });
 ```
 
+### Date pickers and calendars — `templates/DatePicker`
+
+Never import `DatePicker`, `Calendar` (or `RangePicker` through `DatePicker`) from `antd`, nor the `antd/lib/calendar/Header` `RenderHeader` type — ESLint `no-restricted-imports` blocks them.
+The app works with `Dayjs` only; the template converts to the moment objects antd 3 needs and back.
+
+```typescript
+import DatePicker, {
+  Calendar,
+  RangePicker,
+  type CalendarHeaderProps,
+  type RangeValue,
+} from '@components/templates/DatePicker';
+
+{getFieldDecorator(code, { initialValue: value ? dayjs(value) : null })(
+  <DatePicker format={FORMATE_DATE} dropdownClassName="mobile-data-piker" />
+)}
+<Calendar
+  fullscreen={false}
+  disabledDate={(day) => day.isBefore(dayjs(), 'day')}
+  headerRender={(header: CalendarHeaderProps) => <MyHeader {...header} />}
+  onPanelChange={(month) => loadMonth(month)}
+  onSelect={(day) => setCurrentDate(day.format(DB_FORMAT_DATE))}
+/>
+```
+
+- `DatePicker`: `value` / `defaultValue` are `Dayjs | null`; `onChange(date: Dayjs | null, dateString)`; `disabledDate(current: Dayjs)`.
+- `RangePicker`: values are `RangeValue` (`[Dayjs | null, Dayjs | null] | null`).
+- `Calendar`: `value`, `onSelect`, `onChange`, `onPanelChange(date, mode)`, `disabledDate` and `headerRender({ value, onChange })` all use `Dayjs`.
+- Works with `getFieldDecorator` (the template forwards the ref), so form values are `Dayjs`; they serialise through `toJSON` to the same UTC ISO string moment produced.
+- Moment-typed antd props the template does not convert (`dateRender`, `disabledTime`, `onOk`, `ranges`, `dateCellRender`, `validRange`, …) are left out of its props type. Add the conversion in the template when one is needed.
+- Defaults (format, popup container, locale) are changed in the template, not at call sites.
+- When antd is upgraded (sc-40233 / sc-40249), only the template internals change and `src/helpers/momentAdapter.ts` is deleted.
+
 ### Use built-in Ant Design features first
 
 Before writing custom logic — check if Ant Design already covers it:

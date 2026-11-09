@@ -146,6 +146,8 @@ All project regex patterns — import from here, do not duplicate.
 
 When you need a regex — check `regexp.tsx` first. If it doesn't exist, add it there.
 
+Date patterns: `dateOnlyRegexp` (`YYYY-MM-DD` without time), `dateTimeWithOffsetRegexp` (date-time ending with `Z` or a `±hh:mm` offset).
+
 ### `helpers/rulesFileds.ts`
 
 Ant Design v3 `Form` validation rule builders — **always use these instead of writing inline rules**.
@@ -161,9 +163,36 @@ Note: the filename has a typo (`rulesFileds`, not `rulesFields`) — use as-is.
 
 When you need form validation — check `rulesFileds.ts` first. If the rule doesn't exist yet, add it there.
 
+### `helpers/dayjs.ts`
+
+The configured `dayjs` instance (plugins: `utc`, `timezone`, `customParseFormat`, `advancedFormat`) and the `Dayjs` / `DateInput` types.
+Always import dates from here — ESLint blocks `dayjs`, `moment` and `moment-timezone` everywhere else.
+
+```typescript
+import dayjs, { Dayjs } from '@src/helpers/dayjs';
+```
+
+`dayjs` is immutable: `d.add(1, 'month')` returns a new object, so always use the result (`onChange(value.add(1, 'month').date(1))`).
+
 ### `helpers/date.ts`
 
-Date formatting and timezone utilities. Check here before writing date formatting code.
+Date formatting and time-zone utilities. Check here before writing date formatting code. Server date-times (`LocalDateTime`, no offset) are UTC.
+
+| Export | Purpose |
+|--------|---------|
+| `parseServerDate(date)` | Server date-time without offset → local `Dayjs` (read as UTC). A date-only value stays on its calendar day; an explicit `Z` / offset is kept |
+| `getTimeWithTimeZone(date?)` | `parseServerDate` that returns `undefined` for an empty value |
+| `getFormattedDate` / `getFormattedTime` / `getFormattedDateWithTime` | `getTimeWithTimeZone` formatted with `FORMATE_DATE` / `FORMATE_TIME` / `FORMATE_DATE_WITH_TIME` |
+| `parseCalendarDate(date)` | Calendar part of a `YYYY[-MM[-DD]]` value (time and offset ignored) — resume job history dates, which can be partial |
+| `toTimeZone(date, timeZone?)` | UTC date-time shown in `timeZone`; an empty or unknown zone falls back to the browser zone instead of throwing |
+| `getStrTimeZone(timeZone?)` | `(GMT+01:00) Europe/Berlin` label (sent to the backend as `time_zone`) |
+| `getCurrentTimeZone()` / `isValidTimeZone(zone)` | Browser zone (`dayjs.tz.guess()`); whether `Intl` knows the zone |
+
+`dayjs().tz(zone)` throws `RangeError` on an unknown zone — during SSR that crashes the page, so zones that come from data go through `toTimeZone`.
+
+### `helpers/momentAdapter.ts`
+
+`toMoment` / `fromMoment` and `toMomentRange` / `fromMomentRange` (through `.toDate()`; `moment(dayjsObject)` would silently return now). The only file allowed to import `moment` — used by `templates/DatePicker` because antd 3 pickers require moment objects. Do not use it elsewhere; it is deleted with the antd upgrade.
 
 ### `helpers/string.ts`
 
