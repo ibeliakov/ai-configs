@@ -228,6 +228,15 @@ OAuth hand-off from myAccount to the Discovered mobile app (`/access-to/:instanc
 
 The page only forwards `code` (or the provider `error`) to the app — the app calls `/api/auth/login/social` itself so the refresh token is bound to its own `DeviceID`.
 
+### `storageRedirect.ts`
+Return to a storage file after the login:
+
+| Function | Purpose |
+|----------|---------|
+| `captureStorageRedirect(search)` | Remembers the `redirect_to` target the `/storage` proxies send a signed-out browser to (`localStorage` key `storage_redirect_to`); only relative storage proxy paths are accepted, so it is no open redirect. Called once at boot in `src/index.tsx` |
+| `takeStorageRedirect()` | Reads and forgets the remembered file; `finalizeLogon` opens it instead of reloading the page |
+| `clearStorageRedirect()` | Forgets the remembered file without opening it — for a page whose login must return to itself (the AI tool approval page) |
+
 ### `aiToolsAuthorization.ts`
 OAuth request of an AI tool (User MCP):
 
