@@ -116,7 +116,8 @@ They are imported by the parent — never the other way around.
 
 - CSS Modules (`.module.scss`) for all new components
 - Every `.module.scss` file must start with `@import 'assets/styles/custom/variables'`
-- Colors and other design tokens must be taken from `assets/styles/custom/variables`, not hardcoded
+- Colors and other design tokens must be taken from `assets/styles/custom/variables`, not hardcoded. A color that has no variable yet gets a new one in `variables.scss`, never a hex, `rgba(...)` or named color in a module or in TSX
+- Colors that have to stay in JS (AntD color props such as `Progress strokeColor` / `Tag color` / `twoToneColor`, chart and canvas colors, HTML strings built for the back end) come from `assets/styles/custom/tokens.module.scss`: `import tokens from 'assets/styles/custom/tokens.module.scss'`. Add a key to its `:export` block instead of writing a literal
 - Use `classnames` for conditional classes
 - For `display: flex` layouts, use the `ElementsBox` component instead of HTML elements with inline or class-based flex styles
 - Inline styles only for dynamic CSS values (e.g. `style={{ width: value }}`)
