@@ -81,6 +81,9 @@ All project regex patterns — import from here, do not duplicate:
 | `passwordRegexp` | Password strength |
 | `emailRegex` | Email format |
 | `urlRegexp` | URLs |
+| `dateOnlyRegexp` | `YYYY-MM-DD` without time |
+| `dateTimeWithOffsetRegexp` | Date-time that ends with `Z` or a `±hh:mm` offset |
+| `timeWithoutSecondsRegexp` | `H:mm` / `HH:mm` |
 
 When you need a regex — check `regexp.ts` first. If it doesn't exist, add it there.
 
@@ -97,9 +100,35 @@ getFieldDecorator('password', { rules: passwordRules() })(...)
 
 When you need form validation — check `rulesFields.ts` first. If the rule doesn't exist yet, add it there.
 
+### `helpers/dayjs.ts`
+
+The configured `dayjs` instance (plugins: `utc`, `timezone`, `customParseFormat`, `localizedFormat`) and the `Dayjs` / `DateInput` types.
+Always import dates from here — ESLint blocks `dayjs`, `moment` and `moment-timezone` everywhere else.
+
+```typescript
+import dayjs, { Dayjs } from 'helpers/dayjs';
+```
+
+`dayjs` is immutable: `d.add(1, 'day')` returns a new object, so always use the result.
+
 ### `helpers/date.ts`
 
-Date formatting utilities for display and storage.
+Date and time-zone helpers. Server date-times (`LocalDateTime`, no offset) are UTC.
+
+| Export | Purpose |
+|--------|---------|
+| `parseServerDate(date)` | Server date-time without offset → local `Dayjs` (read as UTC). A date-only value stays on its calendar day; an explicit `Z` / offset is kept |
+| `getTimeWithTimeZone(date?)` | `parseServerDate` that returns `undefined` for an empty value — `getTimeWithTimeZone(text)?.format('LL')` in tables |
+| `parseServerTime(time)` | Server `LocalTime` (`HH:mm:ss` or `HH:mm`, UTC) → local `Dayjs` for a `TimePicker` |
+| `formatServerTime(time)` | Local time → UTC `HH:mm:ss` for the API |
+| `getTimeZoneOptions()` | Options for `templates/SelectTimeZone`: `{ label: '(GMT-05:00) US/Eastern', offset, value }`, `US/*` first, then by offset. Built once on first call from `constants/timeZones.ts` (a snapshot of IANA names, kept so saved values like `US/Eastern` stay selectable); zones the browser does not know are skipped |
+| `getCurrentTimeZone()` | Browser time zone (`dayjs.tz.guess()`) |
+
+`dayjs().tz(zone)` throws `RangeError` on an unknown zone (moment only warned) — guard zones that come from data.
+
+### `helpers/momentAdapter.ts`
+
+`toMoment(dayjs)` / `fromMoment(moment)` (through `.toDate()`). The only file allowed to import `moment` — used by `templates/DatePicker` because antd 3 pickers require moment objects. Do not use it elsewhere; it is deleted with the antd upgrade (sc-40207).
 
 ### `helpers/string.ts`
 
@@ -137,7 +166,7 @@ Password generation utility.
 | `useVisible` | `hooks/useVisible.ts` | Toggle visibility state |
 | `useBillingServices` | `hooks/useBillingServices.ts` | Current company billing features |
 | `useLanguageChange` | `hooks/useLanguageChange.ts` | Language/locale switching |
-| `useDisablePreviousDates` | `hooks/useDisablePreviousDates.ts` | AntD DatePicker helper |
+| `useDisablePreviousDates` | `hooks/useDisablePreviousDates.ts` | `disabledDate` for `templates/DatePicker`: `(current: Dayjs) => boolean` that blocks days before today (or before the given `Dayjs`) |
 
 For Redux-specific hooks, also check `store/slices/<domain>/hooks/` if one exists.
 
@@ -148,5 +177,5 @@ For Redux-specific hooks, also check `store/slices/<domain>/hooks/` if one exist
 | Path | Note |
 |------|------|
 | `helpers/authWrapper.js` | Route guards — legacy JS, do not modify |
-| `helpers/Utils.js` | Legacy utility collection — do not modify |
+| `helpers/Utils.js` | Legacy utility collection — do not modify. Its old `Utils.date` helpers moved to `helpers/date.ts` (sc-40217) |
 | `helpers/componentsWrappers.js` | Legacy component wrappers — do not modify |

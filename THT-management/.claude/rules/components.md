@@ -149,6 +149,27 @@ const MyForm = Form.create<Props>()(({ form }: Props) => {
 });
 ```
 
+### Date and time pickers — `templates/DatePicker`
+
+Never import `DatePicker`, `TimePicker` or `Calendar` from `antd` (ESLint `no-restricted-imports` blocks it).
+The app works with `Dayjs` only; the template converts to the moment objects antd 3 needs and back.
+
+```typescript
+import DatePicker, { TimePicker } from 'templates/DatePicker';
+import dayjs from 'helpers/dayjs';
+
+{getFieldDecorator('invoice_date', { initialValue: dayjs() })(
+  <DatePicker disabledDate={disableDate} />
+)}
+<TimePicker use12Hours format="h:mm:ss A" value={time} onChange={setTime} />
+```
+
+- `value` / `defaultValue` are `Dayjs | null`; `onChange(date: Dayjs | null, dateString)`; `disabledDate(current: Dayjs)`.
+- Works with `getFieldDecorator` (the template forwards the ref), so form values are `Dayjs`.
+- Moment-typed antd props the template does not convert (`dateRender`, `disabledTime`, `onPanelChange`, `onOk`, `defaultPickerValue`, `defaultOpenValue`) are left out of its props type. Add the conversion in the template when one is needed.
+- Defaults (format, popup container, locale) are changed in the template, not at call sites.
+- When antd is upgraded (sc-40207), only the template internals change and `helpers/momentAdapter.ts` is deleted.
+
 ### Use built-in Ant Design features first
 
 Before writing custom logic — check if Ant Design already covers it:
