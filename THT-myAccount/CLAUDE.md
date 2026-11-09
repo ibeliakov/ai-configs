@@ -20,6 +20,7 @@ Read the relevant file before writing code:
 - **TypeScript** 4.7.4 — `strict: true`, use `type` not `interface`
 - **Redux** — mixed: legacy `redux` + `redux-thunk` and modern `@reduxjs/toolkit`
 - **Ant Design** 4.24.7 — UI components with custom Less theming
+- **Dates** — `dayjs` via `helpers/dayjs` (moment and moment-timezone were removed in sc-40180); pickers from `templates/DatePicker` / `templates/Calendar`
 - **React Router** v5 — `BrowserRouter`, `Route`, `Switch`
 - **Axios** — via `helpers/ClientApi` wrapper, never import axios directly
 
@@ -81,6 +82,7 @@ Never import `useSelector` or `useDispatch` directly from `react-redux`.
 ## Ant Design
 
 - Import components from `antd` directly: `import { Button, Form } from 'antd'`
+- Exception: `DatePicker`, `TimePicker`, `Calendar` come from `templates/DatePicker` / `templates/Calendar` (Dayjs in and out) — see [components.md](.claude/rules/components.md)
 - Import icons from `@ant-design/icons`
 - Do not override AntD styles with inline styles — use Less variables or CSS Modules
 

@@ -39,25 +39,38 @@ Clipboard:
 | `copyTextToBuffer(text, message?)` | Copy to the clipboard and show a success toast (default *Copied*) |
 | `writeTextToClipboard(text)` | Copy to the clipboard without a toast — for controls that confirm the copy in place (a Copy → Copied tooltip). Rejects when the browser refuses clipboard access; the caller shows the error |
 
+### `dayjs.ts`
+The configured `dayjs` instance (plugins: `utc`, `timezone`, `customParseFormat`, `advancedFormat`, `isSameOrBefore`, `isSameOrAfter`) and the `Dayjs` / `DateInput` types. Always import dates from here — ESLint blocks `dayjs`, `moment` and `moment-timezone` everywhere else (moment was removed in sc-40180).
+
+```typescript
+import dayjs, { Dayjs } from 'helpers/dayjs';
+```
+
+`dayjs` is immutable: `d.add(1, 'day')` returns a new object, so always use the result. There is no object form of `.set({...})` and no plural getters (`.hours()`) — use `.hour(h).minute(m)` / `.hour()`.
+
 ### `date.ts`
-Date formatting and timezone handling:
+Date formatting and time zones. Server date-times (`LocalDateTime`, no offset) are UTC.
 
 | Function | Purpose |
 |----------|---------|
+| `getTimeWithTimeZone(date)` | Server value → local `Dayjs`: no offset = UTC, an explicit `Z` / offset is kept, a date-only value stays on its day (parsed strictly — `2024-02-30` is invalid). Non-string input is passed through `dayjs()`. Used by the date-format hooks |
+| `parseServerDate(date)` | The string part of `getTimeWithTimeZone` |
 | `getMonthDayYearFormatted(date)` | Format to "MMM DD, YYYY" |
-| `getFormattedDateDB(date)` | Format for DB storage |
-| `parseDateAnswer(value)` | A free-text answer (screening questions) → local moment when it is exactly `YYYY-MM-DD` (same calendar day, no shift) or a full ISO timestamp; `undefined` for anything else. Pass the result to `useDateFormat`'s `getFormattedDate` and fall back to the raw answer |
+| `getFormattedDateDB(date)` | Format for DB storage (`YYYY-MM-DD`) |
+| `parseDateAnswer(value)` | A free-text answer (screening questions) → local `Dayjs` when it is exactly `YYYY-MM-DD` (same calendar day, impossible dates rejected) or a full ISO timestamp; `undefined` for anything else. Pass the result to `useDateFormat`'s `getFormattedDate` and fall back to the raw answer |
 | `convertUtcToLocalDate(utc)` | Convert UTC → user's local timezone |
-| `getTimeWithTimeZone(date)` | Attach server timezone to date |
-| `formatUtcInTimeZone(utc, tz)` | Format UTC in a specific timezone |
-| `getStrTimeZone(tz)` | Timezone string with UTC offset |
-| `getCurrentTimeZone()` | User's current timezone |
+| `toTimeZone(date, tz)` | UTC instant shown in `tz` (`dayjs.utc(date).tz(tz)`); an empty or unknown zone falls back to the browser zone instead of throwing |
+| `parseInTimeZone(value, tz)` | Replacement for `moment.tz(value, tz)`: an ISO string with `Z` / offset is converted to `tz`, a plain string is read as wall-clock time in `tz` |
+| `formatUtcInTimeZone(utc, tz, format)` | Format UTC in a specific timezone (local when the zone is unknown). `z` prints Intl short names (`CST`, `GMT+2`) |
+| `isValidTimeZone(tz)` | Whether `Intl` knows the zone — `dayjs().tz(zone)` throws `RangeError` on an unknown one |
+| `getStrTimeZone(tz)` | Timezone string with UTC offset, e.g. `(GMT-06:00) America/Chicago` |
+| `getTimeZoneOptions()` | Options for `templates/SelectTImeZone` and the Sequences forms: `{ label, offset, value }` sorted by real offset (half-hour zones included). Built once on first call from `constants/timeZones.ts` (a snapshot of IANA names, kept so `US/*` and values saved on the backend stay selectable) |
+| `getCurrentTimeZone()` | User's current timezone (`dayjs.tz.guess()`) |
 | `getMeetingDateFormatted(date)` | Meeting-specific display format |
 | `getTimePeriod(from, to)` | Human-readable date range |
 | `getActiveDays(start, end)` | Days between activation and archival |
-| `compareDatesNullFirst(first, second)` | Comparator for two ISO date strings where a missing date (`null` / `undefined`) sorts first — for `Array.sort` or an AntD column `sorter` (AntD reverses it for descending, so missing dates end up last) |
-| `disabledPastDateAndCurrent()` | AntD DatePicker disabledDate helper |
-| `getTodayInUsCentral()` | Today's calendar date in `America/Chicago` as a local moment — every Indeed campaign date is US Central |
+| `disabledPastDate` / `disabledPastDateAndCurrent` | `disabledDate` helpers for `templates/DatePicker` (`Dayjs`) |
+| `getTodayInUsCentral()` | Today's calendar date in `America/Chicago` as a local `Dayjs` — every Indeed campaign date is US Central |
 
 ### `time.ts`
 UTC↔local conversion for scheduling:
@@ -67,7 +80,10 @@ UTC↔local conversion for scheduling:
 | `timeToMinutes(time)` | "HH:MM" → minutes from midnight |
 | `minutesToTimeValue(minutes)` | Minutes from midnight → "HH:MM:SS" (inverse of `timeToMinutes`) |
 | `formatClockDuration(seconds)` | Seconds → stopwatch text "0:35", "12:05", "1:02:09" (rounds, clamps negatives to 0); for short durations such as monitoring flags. For "14 min" / "1 hr 5 min" use `formatDuration(minutes)` from `recurrence.ts` |
-| `utcSlotToLocal(slot, tz)` | UTC time slot → local timezone |
+| `parseTimeOfDay(time)` | `HH:mm:ss` or `HH:mm` → `Dayjs` today (dayjs with `'HH:mm:ss'` alone rejects `HH:mm`) |
+| `parseDateTimeInTimeZone(date, time, tz)` | Replacement for `moment.tz(str, fmt, tz)` / object input: wall-clock date + time in `tz`; on the fall-back night it takes the earlier of the two times, like moment; unknown zone → UTC |
+| `parseTimeOfDayInTimeZone(time, tz)` | `parseDateTimeInTimeZone` on the current UTC date |
+| `utcSlotToLocal(date, time, tz)` | UTC time slot → `tz` (via `toTimeZone`; `24:00:00` rolls to the next midnight) |
 | `convertFreeRangesToTimezone(ranges, tz)` | Convert availability ranges, handles cross-midnight splits |
 
 ### `availability.ts`
@@ -92,6 +108,8 @@ All project regex patterns — import from here, do not duplicate:
 | `emailRegex` | Email format |
 | `urlRegexp`, `urlRegexpHttp` | URLs (with/without protocol) |
 | `postlaCodeRegexp` | US postal codes |
+| `dateOnlyRegexp` | `YYYY-MM-DD` without time |
+| `dateTimeWithOffsetRegexp` | Date-time ending with `Z` or a `±hh:mm` offset |
 | `emptyHtmlRegexp` | Empty HTML tags/paragraphs |
 | `imageRegexp` | Image file URLs |
 | `currencySymbolPayRegex` | "$50,000/year" patterns |
