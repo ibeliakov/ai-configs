@@ -141,6 +141,31 @@ import { Button, Form, Modal } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 ```
 
+### Date pickers and calendars — `templates/DatePicker`, `templates/Calendar`
+
+Never import `DatePicker`, `TimePicker` or `Calendar` from `antd` (ESLint `no-restricted-imports` blocks it). The templates are antd 4 pickers generated for `Dayjs` (`generatePicker` / `generateCalendar` with the rc-picker dayjs config, imported from `antd/es` so they share antd's ConfigProvider):
+
+```typescript
+import DatePicker, { RangePicker, type RangeValue } from 'templates/DatePicker';
+import Calendar, { CalendarMonthHeader } from 'templates/Calendar';
+
+<Form.Item name="deadline">
+  <DatePicker format={dateFormat} disabledDate={disabledPastDate} />
+</Form.Item>
+<RangePicker value={range} onChange={setRange} />
+<Calendar
+  fullscreen={false}
+  headerRender={({ value, onChange }) => (
+    <CalendarMonthHeader value={value} onChange={onChange} titleFormat="MMM YYYY" />
+  )}
+/>
+```
+
+- Values in and out are `Dayjs`; `RangeValue` is a mutable `[Dayjs | null, Dayjs | null] | null` (no readonly-tuple `@ts-ignore`).
+- `CalendarMonthHeader` is the shared "‹ Month Year ›" header (`titleFormat`, `disablePrev`, `disableNext`).
+- Defaults (format, popup container, locale) are changed in the templates, not at call sites; the antd 5 upgrade (sc-40194) only changes the template internals.
+- A value converted to a zone (`toTimeZone`) keeps its wall-clock time in the picker; read the picked day with `.format('YYYY-MM-DD')`. To decide "past / today" in `disabledDate`, compare `format('YYYY-MM-DD')` strings — dayjs `startOf`/`endOf('day')` can be off by an hour on midnight-DST days.
+
 ### Use built-in Ant Design features first
 
 Before writing custom logic — check if Ant Design already covers it:
