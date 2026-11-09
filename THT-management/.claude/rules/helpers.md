@@ -57,6 +57,38 @@ Never read `error.response.data.data.message` directly (`get(error, 'response.da
 
 ---
 
+## Error boundaries
+
+### `helpers/componentsWrappers.tsx`
+
+Default export `ErrorBoundary` — the same class boundary as THT-myAccount and THT-applicant. A crashed subtree is replaced with the secondary *Something went wrong.* text and the error goes to `reportBoundaryError`.
+
+| Prop | Purpose |
+|------|---------|
+| `resetKey?: string` | Clears the error when the value changes (`pathname` for routes and page content) |
+
+Boundaries live in JSX, never as a HOC in a barrel `index.ts`:
+- app root (`src/index.tsx`) and routes (`RouteErrorBoundary` in `pages/Router.js`, `resetKey={pathname}`); `Router` itself must not subscribe to the location, otherwise every route gets a fresh component and the page remounts;
+- page content and the sidebar menu inside `views/Manage` — a crashed page keeps the layout;
+- every tab of `templates/Tabs` (and of a page-level antd `Tabs`);
+- independent self-loading blocks of a page (lists next to the main form) and third-party widgets: Stripe, Quill editors, media and avatar loaders, DnD tables, `ColorPalette`. For a `getFieldDecorator` field wrap the whole `Form.Item`, never the decorated control.
+
+Simple form controls need no boundary of their own.
+
+```typescript
+import ErrorBoundary from 'helpers/componentsWrappers';
+
+<ErrorBoundary>
+  <QuestionListForInterview />
+</ErrorBoundary>
+```
+
+### `helpers/errorReporting.ts`
+
+`reportBoundaryError(error, info)` — the single entry point for errors caught by `ErrorBoundary`. It only logs in development for now; an error monitoring service (Sentry or equivalent) plugs in here.
+
+---
+
 ## Utility modules
 
 ### `helpers/storage.ts`
@@ -178,4 +210,3 @@ For Redux-specific hooks, also check `store/slices/<domain>/hooks/` if one exist
 |------|------|
 | `helpers/authWrapper.js` | Route guards — legacy JS, do not modify |
 | `helpers/Utils.js` | Legacy utility collection — do not modify. Its old `Utils.date` helpers moved to `helpers/date.ts` (sc-40217) |
-| `helpers/componentsWrappers.js` | Legacy component wrappers — do not modify |
