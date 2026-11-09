@@ -19,6 +19,7 @@ Read the relevant file before writing code:
 - **TypeScript** 4.9.5 — `strict: true`, use `type` not `interface`
 - **Redux** — `@reduxjs/toolkit` 1.9 on top of `redux` 4 + `redux-thunk` (same as myAccount). All new Redux code is RTK; legacy switch-case code is still being migrated
 - **Ant Design** 3.26.5 — icons from `antd` (`Icon` component), `Form.create()` HOC
+- **Dates** — `dayjs` via `helpers/dayjs` (never `moment` / `moment-timezone`; moment is only inside `helpers/momentAdapter` for antd 3 pickers). Pickers come from `templates/DatePicker`
 - **React Router** v5 — `BrowserRouter`, `Route`, `Switch`
 - **Axios** — via `helpers/ClientApi` wrapper (JS file), never import axios directly
 
@@ -83,6 +84,7 @@ Never import `useSelector` or `useDispatch` directly from `react-redux`. ESLint 
 ## Ant Design
 
 - Import components from `antd` directly: `import { Button, Form, Table } from 'antd'`
+- Exception: `DatePicker`, `TimePicker`, `Calendar` come from `templates/DatePicker` (Dayjs in and out) — see [components.md](.claude/rules/components.md)
 - Import icons from `antd` using the `Icon` component: `import { Icon } from 'antd'` then `<Icon type="close" />`
 - Forms: use `Form.create()` HOC pattern (v3 style)
 - Do not override AntD styles with inline styles — use Less variables or CSS Modules
@@ -98,7 +100,7 @@ jsxSingleQuote: false
 ```
 
 - `.eslintrc.js` mirrors THT-myAccount: `eslint:recommended` + `@typescript-eslint/recommended`, react-hooks, jsx-a11y.
-- Rules that bite most: `@typescript-eslint/no-unused-vars` (error, no ignore patterns — drop unused params and imports, use `omit` instead of a dead rest-sibling binding), `consistent-type-definitions: type`, `no-restricted-imports` for raw `useSelector`/`useDispatch`, `jsx-quotes: prefer-double`.
+- Rules that bite most: `@typescript-eslint/no-unused-vars` (error, no ignore patterns — drop unused params and imports, use `omit` instead of a dead rest-sibling binding), `consistent-type-definitions: type`, `no-restricted-imports` for raw `useSelector`/`useDispatch`, for `moment` / `moment-timezone` / bare `dayjs` and for antd `DatePicker` / `TimePicker` / `Calendar`, `jsx-quotes: prefer-double`.
 - Only deviation from myAccount: `no-empty` allows an empty `catch {}`.
 - `npm run lint` must stay at 0 errors; `npx tsc -p tsconfig.json --noEmit` must stay clean.
 
@@ -117,7 +119,9 @@ src/
     storage.ts    localStorage helpers
     regexp.ts     all project regex patterns
     rulesFields.ts AntD Form validation rule builders
-    date.ts       date formatting utilities
+    dayjs.ts      configured dayjs instance — the only way to import dayjs
+    date.ts       server date/time parsing, time-zone options
+    momentAdapter.ts  Dayjs <-> moment for antd 3 pickers (templates/DatePicker only)
     string.ts     string processing utilities
     number.ts     number formatting utilities
     validation.ts validation utilities
