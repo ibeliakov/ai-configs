@@ -133,7 +133,7 @@ Registry of the media streams a sitting keeps open: `setSittingStream('camera' |
 
 ### `helpers/displayCount.ts` / `helpers/screenShare.ts`
 
-- `getDisplayCount()` — `1` when `screen.isExtended` is `false`, otherwise `getScreenDetails().screens.length`; `null` when the browser cannot tell
+- `getDisplayCount()` — `1` when `screen.isExtended` is `false`, otherwise `getScreenDetails().screens.length`, never below `2` while `screen.isExtended` is `true` (so it agrees with `hasExtraDisplay()`); `null` when the browser cannot tell
 - `hasExtraDisplay()` — `screen.isExtended === true`, without the `getScreenDetails` permission prompt
 - `watchDisplays(onChange, pollMs)` — calls `onChange(extended)` now, every `pollMs` and on the `screen` `change` event; returns the unsubscribe function; a no-op where `screen.isExtended` isn't available
 - `canConfirmEntireScreen()` — the browser supports the `displaySurface` constraint, so an entire-screen share can be verified
