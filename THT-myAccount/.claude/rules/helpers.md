@@ -59,7 +59,7 @@ Date formatting and time zones. Server date-times (`LocalDateTime`, no offset) a
 | `getFormattedDateDB(date)` | Format for DB storage (`YYYY-MM-DD`) |
 | `parseDateAnswer(value)` | A free-text answer (screening questions) → local `Dayjs` when it is exactly `YYYY-MM-DD` (same calendar day, impossible dates rejected) or a full ISO timestamp; `undefined` for anything else. Pass the result to `useDateFormat`'s `getFormattedDate` and fall back to the raw answer |
 | `convertUtcToLocalDate(utc)` | Convert UTC → user's local timezone |
-| `toTimeZone(date, tz)` | UTC instant shown in `tz` (`dayjs.utc(date).tz(tz)`); an empty or unknown zone falls back to the browser zone instead of throwing |
+| `toTimeZone(date, tz)` | UTC instant shown in `tz` (exact even on DST nights — see below); an empty or unknown zone falls back to the browser zone instead of throwing |
 | `parseInTimeZone(value, tz)` | Replacement for `moment.tz(value, tz)`: an ISO string with `Z` / offset is converted to `tz`, a plain string is read as wall-clock time in `tz` |
 | `formatUtcInTimeZone(utc, tz, format)` | Format UTC in a specific timezone (local when the zone is unknown). `z` prints Intl short names (`CST`, `GMT+2`) |
 | `isValidTimeZone(tz)` | Whether `Intl` knows the zone — `dayjs().tz(zone)` throws `RangeError` on an unknown one |
@@ -70,6 +70,8 @@ Date formatting and time zones. Server date-times (`LocalDateTime`, no offset) a
 | `getTimePeriod(from, to)` | Human-readable date range |
 | `getActiveDays(start, end)` | Days between activation and archival |
 | `disabledPastDate` / `disabledPastDateAndCurrent` | `disabledDate` helpers for `templates/DatePicker` (`Dayjs`) |
+
+Never call `.tz()` directly — go through `toTimeZone` / `parseInTimeZone` / `formatUtcInTimeZone`. dayjs `.tz()` parses the target wall clock as browser-local time, so a wall-clock time inside the browser's own spring-forward hour moves by an hour, instant included. The helpers compute the offset with `Intl` and pin the wall-clock fields: the result is exact for formatting (`z` included), comparisons and `valueOf()`. Date maths chained on such a value (`.add()`, `.startOf()`) is rebuilt by dayjs from browser-local time and can still shift inside that hour — do the maths on the instant (or in UTC) and convert last. The helpers write dayjs private fields, which is why `dayjs` is pinned to an exact version: re-run the DST gap tests in `helpers/date.test.ts` when upgrading it.
 | `getTodayInUsCentral()` | Today's calendar date in `America/Chicago` as a local `Dayjs` — every Indeed campaign date is US Central |
 
 ### `time.ts`

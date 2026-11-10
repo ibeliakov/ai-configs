@@ -190,6 +190,8 @@ Date formatting and time-zone utilities. Check here before writing date formatti
 
 `dayjs().tz(zone)` throws `RangeError` on an unknown zone — during SSR that crashes the page, so zones that come from data go through `toTimeZone`.
 
+Never call `.tz()` directly — go through `toTimeZone`. dayjs `.tz()` parses the target wall clock as browser-local time, so a wall-clock time inside the browser's own spring-forward hour moves by an hour, instant included. The helpers compute the offset with `Intl` and pin the wall-clock fields: the result is exact for formatting (`z` included), comparisons and `valueOf()`. Date maths chained on such a value (`.add()`, `.startOf()`) is rebuilt by dayjs from browser-local time and can still shift inside that hour — do the maths on the instant (or in UTC) and convert last. The helpers write dayjs private fields, which is why `dayjs` is pinned to an exact version: check `toTimeZone` on a DST-gap night of the browser zone when upgrading it (the myAccount copy has tests).
+
 ### `helpers/momentAdapter.ts`
 
 `toMoment` / `fromMoment` and `toMomentRange` / `fromMomentRange` (through `.toDate()`; `moment(dayjsObject)` would silently return now). The only file allowed to import `moment` — used by `templates/DatePicker` because antd 3 pickers require moment objects. Do not use it elsewhere; it is deleted with the antd upgrade.
