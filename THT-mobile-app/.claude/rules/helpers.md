@@ -74,12 +74,14 @@ try {
 | `parseApiError(error)` | Returns structured `ApiError` with type and statusCode. `network` only for an axios error without a response |
 | `getErrorMessage(error, fallback?)` | `full_message` → `message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419); network errors → *Check your internet connection and try again*; otherwise `fallback` (default *An unexpected error occurred*) |
 | `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`, plus `attempts_left`, `retry_after_seconds`, `retry_after_minutes` on login 2FA errors) — for backend codes |
 | `shouldShowError(error)` | `false` for 401/419 and for guest verification errors |
 | `showError(error)` | Shows Toast if `shouldShowError` is true |
 
 Rules:
 - Never show `error.message` of an axios error ("Request failed with status code …") and never read `error.response.data…` directly — use `getErrorMessage(error, '<feature fallback>')` / `getErrorStatus`.
 - Thunks reject with a message string, never the raw AxiosError (non-serializable, carries config and headers).
+- Exception: the login 2FA thunks (`pinVerify`, `sendPin`) reject with the plain object from `parseLoginMfaError` (`helpers/loginMfa.ts`: `{ code, message, isSignInLost, retryAfterSeconds }`), because the slice and the screen branch on the backend code. `isSignInLost` (`MFA_TOKEN_INVALID`, `LOGIN_PAUSED`) makes the slice drop the verification state, so `AuthScreen` shows the login form again. `getResendDelay(sendCount)` gives the *Send again* delay (30, 30, then 300 s); `MAX_PIN_SENDS` is 5.
 - Request generic is `ApiResponse<T>` from `src/types/common.ts` (the backend envelope) — `api.get<ApiResponse<T>>(…)` → `response.data.data`. Not inline `<{ data: T }>` and not the payload type itself.
 
 ---
@@ -208,6 +210,7 @@ Shared custom hooks:
 | `useAppSelector` / `useAppDispatch` | Typed Redux hooks — always use these, never raw hooks |
 | `useDebounce(value, delay)` | Debounced value |
 | `useOAuth` | OAuth authentication flow |
+| `useResendCooldown` | *Send again* lock counted from an absolute deadline, so time in the background counts: `{ secondsLeft, start(seconds?), reset }`. Used by the login code screen and the guest verification |
 | `useReplaceTokens` | Token refresh helpers |
 
 For slice-specific hooks, check `src/store/slices/<domain>/hooks.ts`.

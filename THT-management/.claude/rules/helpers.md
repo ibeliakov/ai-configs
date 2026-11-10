@@ -31,10 +31,11 @@ Error handling helpers — same API as THT-myAccount `helpers/forActions.ts`:
 | `getErrorMessage(error, fallback?)` | `data.full_message` → `data.message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419) → `fallback` (default *Some error occurred*) |
 | `getVisibleErrorMessage(error, fallback?)` | `''` for 401/419, otherwise `getErrorMessage` — for legacy redux `FAILURE` payloads that containers toast with `error && …` |
 | `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
+| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`, plus `attempts_left`, `retry_after_seconds`, `retry_after_minutes` on login 2FA errors) — for backend codes |
 | `showError(error)` | Ant Design `notification.error` with `getErrorMessage`; no toast for 401/419 (`response.status` or `response.data.status`) |
 | `handleError(error)` | Runs `showError` — the default for `catch` blocks |
 
-All helpers take `error: unknown`. Types live in `interfaces/common.ts`: `ApiResponse<T>`, `PageData<T>`, `ResponseSearch<T>` (= `ApiResponse<PageData<T>>`), `ApiErrorBody`, `QueryError`.
+All helpers take `error: unknown`. Types live in `interfaces/common.ts`: `ApiResponse<T>`, `PageData<T>`, `ResponseSearch<T>` (= `ApiResponse<PageData<T>>`), `ApiErrorData`, `ApiErrorBody`, `QueryError`.
 
 ```typescript
 import { getErrorMessage, handleError } from 'helpers/forActions';
@@ -54,6 +55,17 @@ Never read `error.response.data.data.message` directly (`get(error, 'response.da
 - Sign-in actions (`authAction.js`) use `getErrorMessage`, not `getVisibleErrorMessage` — there is no session to end silently there.
 - RTK thunks reject with a string: `rejectWithValue(getErrorMessage(error))` with `rejectValue: string`, never the raw AxiosError.
 - Request generic is `ApiResponse<T>` (the backend envelope), never `AxiosResponse<T>`; endpoints that return a raw body keep their own type.
+
+### `helpers/loginMfa.ts`
+
+Login 2FA (sc-46832), same API as THT-myAccount `helpers/loginMfa.ts`: the code is bound to the `mfa_token` that `/api/auth/login` returns.
+
+| Export | Purpose |
+|--------|---------|
+| `parseLoginMfaError(error)` | `{ code, message, isSignInLost, retryAfterSeconds }` from a `pin/request` / `pin/verify` error. `isSignInLost` is `true` for `MFA_TOKEN_INVALID` and `LOGIN_PAUSED` (reset `verification_method` and `mfa_token` in the `FAILURE` payload); `message` gets *N attempts left.* appended for `INVALID_PIN` |
+| `getResendDelay(sendCount)` | Seconds before the next *Send again*, by the number of codes already sent (the first one comes from `/login`): 30, 30, then 300 |
+| `MAX_PIN_SENDS` | 5 codes per sign-in |
+| `LOGIN_MFA_ERROR` | The backend codes: `INVALID_PIN`, `LOGIN_PAUSED`, `MFA_TOKEN_INVALID`, `PIN_RESEND_COOLDOWN` |
 
 ---
 
@@ -198,6 +210,7 @@ Password generation utility.
 | `useVisible` | `hooks/useVisible.ts` | Toggle visibility state |
 | `useBillingServices` | `hooks/useBillingServices.ts` | Current company billing features |
 | `useLanguageChange` | `hooks/useLanguageChange.ts` | Language/locale switching |
+| `useResendCooldown` | `hooks/useResendCooldown.ts` | *Send again* lock counted from an absolute deadline: `{ isCoolingDown, secondsLeft, start(seconds?), reset }` |
 | `useDisablePreviousDates` | `hooks/useDisablePreviousDates.ts` | `disabledDate` for `templates/DatePicker`: `(current: Dayjs) => boolean` that blocks days before today (or before the given `Dayjs`) |
 
 For Redux-specific hooks, also check `store/slices/<domain>/hooks/` if one exists.
