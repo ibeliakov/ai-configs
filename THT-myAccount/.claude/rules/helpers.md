@@ -306,7 +306,7 @@ Error handling and access data for API calls:
 | `runWithAccessData(fn)` | Run `fn` with the effective `{ company_id, company_group_id }` of the URL scope; shows *Full authentication is required…* and returns `undefined` when there is no scope |
 | `getErrorMessage(error, fallback?)` | `data.full_message` → `data.message` → `result_text` (not `failure`/`Success`) → top-level `message` (not on 401/419) → `fallback` (default *Some error occurred*) — for showing an error in place instead of a toast. Pass `''` as fallback when the caller has its own default text |
 | `getErrorStatus(error)` | HTTP status, or `undefined` without a response |
-| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`) — for backend codes such as SMS refusal tokens |
+| `getErrorData(error)` | The error envelope's `data` (`message`, `full_message`, `code`, plus `attempts_left`, `retry_after_seconds`, `retry_after_minutes` on login 2FA errors) — for backend codes such as SMS refusal tokens |
 | `isRequestError(error)` | `true` for an axios error — tells a request failure (already toasted by `handleError`) from a local validation `Error` |
 | `parseBlobError(error)` | For `responseType: 'blob'` requests: turns a JSON error body back into an object before `getErrorMessage` |
 | `handleError(error)` | Error toast with `getErrorMessage`; no toast for 401/419, a guest losing its session or the rest of a denied-scope burst |
@@ -316,6 +316,18 @@ All helpers take `error: unknown`. Types live in `interfaces/common.ts`: `ApiRes
 Rules:
 - Never read `error.response…` directly (`get(error, 'response.data.data.message')`, `(error as …).response?.status`) and never show the axios `error.message` — use the helpers above.
 - Request generic is `ApiResponse<T>` (the backend envelope), never `AxiosResponse<T>`; endpoints that return a raw body keep their own type.
+
+### `loginMfa.ts`
+Login 2FA (sc-46832): the code is bound to the `mfa_token` that `/api/auth/login` returns.
+
+| Export | Purpose |
+|--------|---------|
+| `parseLoginMfaError(error)` | `{ code, message, isSignInLost, retryAfterSeconds }` from a `pin/request` / `pin/verify` error. `isSignInLost` is `true` for `MFA_TOKEN_INVALID` and `LOGIN_PAUSED` (send the user back to the password form); `message` gets *N attempts left.* appended for `INVALID_PIN` |
+| `getResendDelay(sendCount)` | Seconds before the next *Send again*, by the number of codes already sent (the first one comes from `/login`): 30, 30, then 300 — the same schedule as the backend cooldown |
+| `MAX_PIN_SENDS` | 5 codes per sign-in; after that the backend answers `MFA_TOKEN_INVALID` |
+| `LOGIN_MFA_ERROR` | The backend codes: `INVALID_PIN`, `LOGIN_PAUSED`, `MFA_TOKEN_INVALID`, `PIN_RESEND_COOLDOWN` |
+
+Branch on `code`, never on the message text. A 401 from these endpoints is not toasted by `handleError`, so show `message` explicitly.
 
 ### `authWrapper.js`
 Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
@@ -342,6 +354,7 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 | `useUserAccessAvailable` | `hooks/useUserAccessAvailable.ts` | Whether a personal access feature (User API, User MCP) is available to the current user: the current company has the feature, the user has no `disable_*` denial (global or for this company), is assigned to the company as Admin, Editor or Viewer, and is not in group mode. Takes the three feature lists as module-level constants; wrapped by `useUserApiKeyAvailable` (`store/slices/userApiKey`) and `useAiToolsAvailable` (`store/slices/aiTools`) — add a wrapper, do not copy the rule |
 | `useNotificationTypes` | `hooks/useNotificationTypes.ts` | Job post notification type catalogue from static data, filtered by the company's services (`{ types, loaded }`) |
 | `useBeforeUnloadPrompt` | `hooks/useBeforeUnloadPrompt.ts` | Browser's native leave-page dialog on refresh or tab close while `when` is true; registers no listener otherwise |
+| `useResendCooldown` | `hooks/useResendCooldown.ts` | *Send again* lock counted from an absolute deadline: `{ isCoolingDown, secondsLeft, start(seconds?), reset }`. Used by the login code screen and the guest verification |
 
 Unsaved-changes guards live in `templates/UnsavedChanges`: `useUnsavedChangesScope()` + `UnsavedChangesProvider` create a nested scope that renders the shared `UnsavedChangesModal` (the `RouterPrompt` modal) for `scope.confirmDiscard(action)`; inputs call `useReportUnsavedChanges(isDirty)` (no-op outside a provider). Dirty means "value differs from the initial value", never "touched".
 
