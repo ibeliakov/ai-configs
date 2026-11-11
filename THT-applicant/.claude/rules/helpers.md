@@ -148,6 +148,8 @@ When you need a regex — check `regexp.tsx` first. If it doesn't exist, add it 
 
 Date patterns: `dateOnlyRegexp` (`YYYY-MM-DD` without time), `dateTimeWithOffsetRegexp` (date-time ending with `Z` or a `±hh:mm` offset).
 
+`htmlTagRegexp` — one HTML tag, `/<[^>]*>/g`, the same pattern as the backend `removeHtmlTags`. It is global, so use it with `replace`, not `test`; for stripping go through `stripHtmlTags` in `string.ts`.
+
 ### `helpers/rulesFileds.ts`
 
 Ant Design v3 `Form` validation rule builders — **always use these instead of writing inline rules**.
@@ -199,6 +201,13 @@ Never call `.tz()` directly — go through `toTimeZone`. dayjs `.tz()` parses th
 ### `helpers/string.ts`
 
 String and text processing helpers. Check here before writing string manipulation code.
+
+| Export | Purpose |
+|--------|---------|
+| `stripHtmlTags(html)` | Removes tags with `htmlTagRegexp`; entities (`&nbsp;`, `&amp;`) stay as they are, like on the backend. `''` for an empty value |
+| `hasIndexableDescription(html)` | The backend rule for a job description: the plain text after `stripHtmlTags` is longer than 100 characters. Below that the job is left out of the career page, the sitemap and the job board feeds, and `JobDetailsHelmet` marks its page `noindex` without JSON-LD |
+| `getEmploymentTypeEnum(code)` | Employment type code → schema.org `employmentType` (`FULL_TIME`, …); `OTHER` for an unknown code, `undefined` for an empty one |
+| `getSalaryUnitText(interval)` | `compensation_interval` → JobPosting `baseSalary` `unitText`: `annually` → `YEAR`, `monthly` → `MONTH`, `weekly` → `WEEK`, `daily` → `DAY`, `hourly` → `HOUR`; `undefined` (the key is dropped from the JSON-LD) for an unknown or empty value |
 
 ### `helpers/formated.ts`
 
