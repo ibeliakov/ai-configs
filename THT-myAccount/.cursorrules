@@ -109,7 +109,7 @@ Never import `useSelector` or `useDispatch` directly from `react-redux`.
 2. Does it require billing features (`billingPermission: ServiceCode[]`)?
 3. If yes — `typePermission: 'some'` (at least one) or `'every'` (all required)?
 
-Routes go in `src/pages/routeItems/*RouteItems.ts` (split by permission level). Path constants go in `constants/urlList.ts`. Never add routes directly to `Router.tsx`. `helpers/authWrapper.js` is legacy JS — do not modify.
+Routes go in `src/pages/routeItems/*RouteItems.ts` (split by permission level). Path constants go in `constants/urlList.ts`. Never add routes directly to `Router.tsx`. `helpers/authWrapper.ts` is legacy — do not modify.
 
 ---
 
@@ -119,7 +119,7 @@ Routes go in `src/pages/routeItems/*RouteItems.ts` (split by permission level). 
 | ----------------------------- | ------------------------------------------------------------- |
 | `src/actions/`                | Old redux-thunk action creators                               |
 | `src/reducers/`               | Old switch-case reducers                                      |
-| `src/store/configureStore.js` | Old `createStore` bootstrap                                   |
+| `src/store/configureStore.ts` | Old `createStore` bootstrap                                   |
 | `src/selectors/`              | Legacy reselect selectors                                     |
 | `src/interfaces/`             | Mixed old/new types — edit only the type relevant to the task |
 

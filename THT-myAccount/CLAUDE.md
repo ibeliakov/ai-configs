@@ -26,6 +26,8 @@ Read the relevant file before writing code:
 
 ## TypeScript conventions
 
+- `src/` is TypeScript only: `allowJs` is off, new files are `.ts` / `.tsx`
+- `@types/redux-logger` is pinned to `3.0.12`: `3.0.13` depends on `redux` 5, and the app is on `redux` 4
 - Always use `type` instead of `interface`
 - Prefer explicit return types on hooks and complex functions
 - Use `FC<Props>` for components
@@ -114,7 +116,7 @@ ESLint notable rules:
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/actions/`                | ~69 legacy action creators using redux-thunk style                                           |
 | `src/reducers/`               | ~80 legacy switch-case reducers                                                              |
-| `src/store/configureStore.js` | Old `createStore` store setup — do not migrate without explicit task                         |
+| `src/store/configureStore.ts` | Old `createStore` store setup — do not migrate without explicit task                         |
 | `src/selectors/`              | Legacy reselect selectors tied to old reducers — read-only unless migrating a specific slice |
 | `src/interfaces/`             | Many files mix old and new types — edit only the type relevant to the task                   |
 
@@ -137,7 +139,7 @@ src/
   reducers/       LEGACY — old Redux reducers + root reducer index
   selectors/      LEGACY — reselect selectors for old state shape
   store/
-    configureStore.js   LEGACY — store bootstrap
+    configureStore.ts   LEGACY — store bootstrap
     localStoregeMiddleware.ts
     slices/             NEW — all RTK slices, grouped by domain
   templates/      reusable presentational components
