@@ -39,6 +39,15 @@ Clipboard:
 | `copyTextToBuffer(text, message?)` | Copy to the clipboard and show a success toast (default *Copied*) |
 | `writeTextToClipboard(text)` | Copy to the clipboard without a toast — for controls that confirm the copy in place (a Copy → Copied tooltip). Rejects when the browser refuses clipboard access; the caller shows the error |
 
+### `codeInput.ts`
+Cell logic of `templates/CodeInput` (the six-cell PIN field of the 2FA and guest code screens). All three return a new array and leave the input untouched:
+
+| Function | Purpose |
+|----------|---------|
+| `keepDigits(value)` | Only the digits of a typed, pasted or autofilled value (`'123 456'` → `'123456'`) |
+| `fillCodeCells(cells, startIndex, chars)` | Put `chars` into the cells from `startIndex` to the right; what does not fit after the last cell is dropped |
+| `clearCodeCell(cells, index)` | Empty one cell (Backspace) |
+
 ### `dayjs.ts`
 The configured `dayjs` instance (plugins: `utc`, `timezone`, `customParseFormat`, `advancedFormat`, `isSameOrBefore`, `isSameOrAfter`) and the `Dayjs` / `DateInput` types. Always import dates from here — ESLint blocks `dayjs`, `moment` and `moment-timezone` everywhere else (moment was removed in sc-40180).
 
