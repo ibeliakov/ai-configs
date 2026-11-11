@@ -340,9 +340,9 @@ Login 2FA (sc-46832): the code is bound to the `mfa_token` that `/api/auth/login
 
 Branch on `code`, never on the message text. A 401 from these endpoints is not toasted by `handleError`, so show `message` explicitly.
 
-### `authWrapper.js`
+### `authWrapper.ts`
 Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
-**Legacy JS file — do not modify.** See [routing.md](routing.md) for usage context.
+**Legacy file — do not modify.** See [routing.md](routing.md) for usage context.
 
 ---
 

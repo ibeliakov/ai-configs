@@ -102,7 +102,7 @@ Some routes require the company to have specific paid features enabled:
 
 ## Auth wrappers
 
-Route guards live in `helpers/authWrapper.js` — this is **legacy JS code, do not modify**.
+Route guards live in `helpers/authWrapper.ts` — this is **legacy code, do not modify**. `redux-auth-wrapper/history4/redirect` has no usable typings (every `@types/redux-auth-wrapper` version pulls in `redux` 3), so `connectedRouterRedirect` is declared in `decs.d.ts`.
 
 The wrappers use `redux-auth-wrapper` (`connectedRouterRedirect`) to redirect users who fail the permission check. Logic:
 - Checks auth state from Redux
