@@ -233,6 +233,7 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 How it behaves:
 
 - **Nothing is built before `approve`.** No worktrees, no code changes, no commits.
+- **A story** is read together with its parent epic: the epic's description, comments, documents and backend links go into the context as reference, and its other stories are listed so the planner sees the boundaries. Only the story itself is implemented.
 - **An epic** is planned as one plan with one phase per frontend story. Backend stories are included only when the extra instructions ask for them. Each repository gets one branch and one pull request.
 - **Open questions go to you.** When an agent sees two viable approaches or an ambiguity, it stops and the orchestrator asks you; it never decides on its own.
 - **QA findings** go back to the implementer, the fix is reviewed again, the documentation is updated when behaviour changed, and QA reruns the affected cases.

@@ -76,7 +76,16 @@ curl -s -H "Shortcut-Token: $SHORTCUT_API_TOKEN" https://api.app.shortcut.com/ap
 
 Take `.files[]` (`name`, `content_type`, `url`), download each file with the same header into `<task dir>/attachments/`, and read it. On Windows use `$env:SHORTCUT_API_TOKEN`. The token is written to `.claude/settings.local.json` by the setup script. Never print it.
 
-**A story.** Collect the title, description, acceptance criteria, checklists and tasks, comments, story relationships, external links, labels, team, workflow state and the parent epic's description.
+**A story.** Collect the title, description, acceptance criteria, checklists and tasks, comments, story relationships, external links, labels, team and workflow state.
+
+**The parent epic of a story.** When the story belongs to an epic, read that epic as thoroughly as in an epic run. The epic usually holds the specification, and the story names only a slice of it.
+
+- Read the epic's description, comments, linked documents, links, attachments and videos.
+- Links in it to backend code and backend documentation go under `Backend references`.
+- List the epic's other stories with title, workflow state and whether each is frontend or backend. Do not read them in full.
+- Record all of this under `Parent epic` in the context file.
+
+The epic is reference material. The scope of the run stays the story you were given: one phase, and the sibling stories are never implemented, moved to another state or commented on. A disagreement between the story and its epic is an ambiguity to ask about, as described below.
 
 **An epic.** Collect the epic's description, comments, linked documents and links, and the list of its stories. The epic is the specification: links in it to backend code and backend documentation are references for the planner, to be read and not changed.
 
@@ -409,8 +418,25 @@ QA fix rounds: 0 · Bot rounds per pull request: 0
 ## Acceptance criteria
 <numbered AC-1, AC-2, …; for an epic grouped by story>
 
+## Parent epic
+<story run only; "None" when the story has no epic>
+- Epic: <id>, <title>, <URL>
+
+### Epic description
+<verbatim>
+
+### Decisions from epic comments
+<with author and date>
+
+### Epic documents and links
+<what each contains; downloaded files are listed under "Attachments and links">
+
+### Sibling stories
+<reference only, not part of this run>
+| Story | Title | State | Frontend or backend | How it relates to this task |
+
 ## Stories and phases
-<epic only>
+<epic run only>
 | Phase | Story | Title | State | Included | Reason |
 
 ## Comments and decisions
@@ -420,7 +446,7 @@ QA fix rounds: 0 · Bot rounds per pull request: 0
 | Item | Type | Local path or URL | What it contains |
 
 ## Backend references
-<backend code paths, API documentation and contracts named in the task, read only>
+<backend code paths, API documentation and contracts named in the task or in its parent epic, read only>
 
 ## Repositories
 | Repository | Role | Main checkout | Base ref | Code read path | Rules path |

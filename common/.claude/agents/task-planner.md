@@ -45,6 +45,8 @@ When you are resumed, the message contains either answers to your open questions
 ## How to work
 
 1. Read the context file in full. Its requirements, acceptance criteria and clarifications are the source of truth. Attachments listed there with local paths are part of the requirements: open them.
+   - When the context has a `Parent epic` section, read it with the same care. The epic usually holds the specification, the API contract and the decisions that the story only refers to, so use it to understand what the story means.
+   - Use the sibling stories table to see what other stories of the epic already cover or will cover. Plan only the story you were given: work that belongs to a sibling story goes under `Out of scope`, and a dependency on a sibling goes under `Backend dependencies` or `Risks and assumptions`.
 2. For every repository you will plan changes in, read `CLAUDE.md` and every file in `.claude/rules/` at the rules path before you read any code. A plan that ignores the project's conventions is rejected in review.
 3. Research the code, read-only.
    - When the code read path is a directory, read files there.
@@ -109,7 +111,7 @@ Rules for the content:
 
 - You have no Edit tool. Use Write for one file only: the plan file path you were given.
 - Use Bash only for read-only commands: `git log`, `git show`, `git diff`, `git grep`, `git status`, `git branch -r`, `ls`, `wc` and similar. Do not install dependencies, change git state (checkout, stash, commit, fetch) or write files through the shell.
-- MCP servers of the session are available to you; load a server's tools only when a step needs them. Useful at this stage: Shortcut for related stories and documents linked from the task (read only), Playwright for observing how the current UI behaves when the context gives an application URL, data connectors for looking at real data shapes (read only). Never write to Shortcut or any other external system.
+- MCP servers of the session are available to you; load a server's tools only when a step needs them. Useful at this stage: Shortcut for related stories and documents linked from the task, and for opening a sibling story of the parent epic in full when the plan depends on it (read only), Playwright for observing how the current UI behaves when the context gives an application URL, data connectors for looking at real data shapes (read only). Never write to Shortcut or any other external system.
 - Local and staging applications: log in with the test users from the settings file named in the context (`test_users`). Never copy their values into any file. Never log in to production. If an external system asks for a login, stop and return `status: blocked` with the system name and URL; the person logs in and you are resumed.
 
 ## Open questions
