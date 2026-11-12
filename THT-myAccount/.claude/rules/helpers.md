@@ -344,6 +344,40 @@ Branch on `code`, never on the message text. A 401 from these endpoints is not t
 Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 **Legacy file — do not modify.** See [routing.md](routing.md) for usage context.
 
+### `componentsWrappers.tsx`
+`ErrorBoundary` — wrap a UI block in JSX. On a render error it shows the "Something went wrong." fallback and reports through `reportBoundaryError`. A failed dynamic import (a chunk from an older deploy) calls `reloadForStaleBuild()` — one reload per minute per tab — and shows the **Reload** modal when that reload is not allowed. Pass `resetKey` (tab, route, step) to clear the error when the key changes.
+
+### `staleBuild.ts`
+`isChunkLoadError(error)` — a failed dynamic import or CSS preload. `reloadForStaleBuild()` — reloads unless another reload happened within a minute or `sessionStorage['stale_build_reload_at']` cannot be written; returns `false` when it did not reload.
+
+### `errorStatus.ts`
+`getErrorResponse(error)`, `getErrorStatus(error)` — dependency-free readers of the axios response, shared by `forActions.ts` and the monitoring layer.
+
+---
+
+## Monitoring (`helpers/monitoring/`)
+
+Error monitoring behind a vendor-neutral facade; Sentry is the first provider (sc-46855). Errors only: no tracing, no session replay. Without `VITE_SENTRY_DSN` at build time no Sentry provider is registered and the SDK is dropped from the bundle. Full description: THT-docs `docs/monitoring/sentry-frontend.md`.
+
+Import from `helpers/monitoring` only. `@sentry/*` is an ESLint error outside `helpers/monitoring/providers/`.
+
+| Export | Purpose |
+|--------|---------|
+| `reportError(error, context?)` | A caught failure that is a real error. `context`: `level`, `tags`, `extra`, `fingerprint` |
+| `reportMessage(message, context?)` | A notable non-error event; rare |
+| `addMonitoringBreadcrumb({ category, message, data? })` | Context that explains a later error, such as a state change before a failure |
+| `reportApiError(error)` | Called by the `ClientApi` response interceptor only: reports status ≥ 500 outside the expected 503s, grouped by normalized endpoint, throttled per endpoint and status |
+| `reportHttpFailure(error, { method, url, status })` | For raw `fetch` calls that bypass `ClientApi` (token refresh) |
+| `reportBoundaryError`, `reportStaleBuild` | Called by `ErrorBoundary` only |
+| `setMonitoringUser`, `clearMonitoringUser` | Driven by `hooks/useMonitoringUser` (mounted in `AppComponent`) and `clearSession()`; do not call them from features |
+
+Rules:
+- Do not report what `ClientApi` already reports: never call `reportError` for an axios error in a `catch`. `handleError` and `showError` do not report.
+- Expected states are not errors: 4xx, validation, cancellation, kill switches. An expected 5xx state goes into `EXPECTED_FAILURES` in `monitoring/apiErrors.ts`.
+- Never put emails, names, tokens or URLs with query strings into `tags`, `extra` or messages — use ids. `monitoring/scrub.ts` is a safety net, not permission.
+- Initialisation is the first import of `src/index.tsx` (`helpers/monitoring/init`); do not initialise anywhere else.
+- A new provider is a file in `providers/` plus a line in `createMonitoringProviders()` (`config.ts`); application code does not change.
+
 ---
 
 ## Hooks (`helpers/hooks/`)
