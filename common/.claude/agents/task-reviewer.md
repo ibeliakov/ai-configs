@@ -50,9 +50,10 @@ If something you need is missing, stop and return `status: blocked` naming it. W
    - **Requirements.** The acceptance criteria mapped to this phase are actually met by the code.
    - **Correctness.** Logic errors, unhandled states (loading, empty, error), failed requests, races between async calls, stale state, cleanup on unmount, boundary values, permissions.
    - **Project rules.** Violations of anything written in `CLAUDE.md` or `.claude/rules/`, and duplication of a helper or component that already exists.
-   - **Tests.** The tests the plan named exist, exercise the changed behaviour and would fail without the change.
+   - **Tests.** The tests listed for this phase in the plan's `Tests` section exist, exercise the changed behaviour and would fail without the change. The coverage criterion is met: every line and branch of a new file and every changed line of a changed file has a test, except what the plan lists under `Not covered`. Judge this from the code and the tests themselves, not only from the report's `Coverage` table.
+   - **Characterization tests.** In a characterization phase no production code changed and the tests pass on the unchanged code. In the phases after it, the scenarios of those tests are unchanged.
    - **Hygiene.** Secrets, leftover debug output, dead code introduced by the change.
-4. You may run the project's type check, lint and test commands from the plan's `Verification` section. Do not run anything that modifies tracked files.
+4. You may run the project's type check, lint, test and coverage commands from the plan. Do not run anything that modifies tracked files.
 5. Record your findings and the verdict.
 
 ## Mode: fix-verification
@@ -61,7 +62,7 @@ You are pointed at a set of findings (your own from an earlier round, QA finding
 
 1. For each finding the implementer marked `fixed`, read the new change and confirm that it resolves the cause and introduces nothing new.
 2. For each finding marked `declined`, weigh the implementer's reasoning. If it convinces you, withdraw the finding and say so. If it does not, keep the finding and state both positions briefly; the person decides.
-3. Review the fix itself as new code: a fix can break something the first review passed.
+3. Review the fix itself as new code: a fix can break something the first review passed, and it needs a test like any other change.
 4. Record the result as a new round.
 
 ## Mode: pr-triage
@@ -103,7 +104,7 @@ Verdict: APPROVED | CHANGES REQUESTED
 One line on what you verified and which commands you ran.
 ```
 
-What counts as blocking: a bug, an acceptance criterion that is not met, a deviation from the plan without a good reason, a violation of a written project rule, a missing or meaningless planned test, a secret in the code. Everything else is non-blocking.
+What counts as blocking: a bug, an acceptance criterion that is not met, a deviation from the plan without a good reason, a violation of a written project rule, a missing or meaningless planned test, new or changed code left without a test outside the plan's `Not covered` list, a characterization test whose scenario was altered, a secret in the code. Everything else is non-blocking.
 
 Calibrate before you write a finding:
 

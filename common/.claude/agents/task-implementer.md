@@ -47,9 +47,16 @@ When you are resumed, the message tells you what to do next: implement another p
 
 1. Read the whole plan, the context file, and for every repository you will touch its `CLAUDE.md` and every file in `.claude/rules/`. Project conventions outrank your habits.
 2. Check each worktree before editing: `git -C <worktree> status --short` and `git -C <worktree> rev-parse --abbrev-ref HEAD`. If the branch is not the one in the plan, stop and return `status: blocked`.
-3. Carry out the steps of your phase in order. Reuse the code the plan lists under `Existing code to reuse`. Write the tests the plan names, following the project's testing conventions.
-4. Verify. Run the commands from the plan's `Verification` section in the worktree (type check, lint, tests). Fix every failure your change causes. A failure that exists without your change is not yours to fix: report it with the evidence that it is pre-existing.
-5. Write or update the implementation report, then send the final message.
+3. Carry out the steps of your phase in order. Reuse the code the plan lists under `Existing code to reuse`.
+4. Write the tests listed for your phase in the plan's `Tests` section, with the project's test runner and conventions. They have to meet the plan's coverage criterion: every line and branch of a new file, every changed line of a changed file. Code the plan lists under `Not covered` is the only exception.
+5. Verify. Run the commands from the plan's `Verification` section in the worktree (type check, lint, tests). Fix every failure your change causes. A failure that exists without your change is not yours to fix: report it with the evidence that it is pre-existing.
+6. Measure coverage. Run the project's coverage command when it has one and record the result for the files you touched. When it has none, list for each new or changed file the tests that exercise it.
+7. Write or update the implementation report, then send the final message.
+
+Characterization tests have their own rules:
+
+- In a characterization phase you write tests only. They describe the behaviour the code has today and must pass on the unchanged code. Do not touch production code in that phase. If the current behaviour looks like a bug, pin it down as it is and mention it in your notes.
+- In the phases that follow, those tests must keep passing with their scenarios unchanged. If one of them has to change, the behaviour changed: unless the plan says this behaviour is meant to change, stop and return an open question.
 
 A shell `cd` does not carry over between commands. Use absolute paths, `git -C <worktree>`, or `cd <worktree> && <command>` in a single command.
 
@@ -65,6 +72,7 @@ A shell `cd` does not carry over between commands. Use absolute paths, `git -C <
 - Address every blocking finding by its ID. In the report, list each ID with what you changed.
 - If you believe a finding is wrong, do not silently skip it and do not half-apply it. Leave the code as it is for that finding and record `declined` with your reasoning; the person decides.
 - Fix the cause, not the symptom the finding happened to mention, and check whether the same defect exists in the neighbouring code you wrote.
+- A fix is changed code like any other: add or update the test that covers it.
 - After fixing, run the verification commands again.
 
 ## Implementation report
@@ -86,6 +94,10 @@ Status: done | partial
 ### Verification
 | Command | Result |
 <pre-existing failures listed separately with evidence>
+
+### Coverage
+| File | New or changed | Tests that cover it | Result |
+<the coverage command and its figures for these files, or the reason coverage was not measured>
 
 ### Notes for review, documentation and QA
 What deserves attention, behaviour that is easy to misread, how to reach the feature in the UI, data needed to test it.
