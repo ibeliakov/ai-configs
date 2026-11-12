@@ -198,6 +198,14 @@ Candidate utilities:
 Single-candidate components should use the `useSmsConsentBlock` hook instead of calling
 `getSmsConsentBlock` directly — it reads the A2P registration state from Redux.
 
+### `bulkMessaging.tsx`
+The per-candidate result of `POST …/candidate/messaging/bulk` (`BulkMessageResult[]` from `interfaces/messagingCandidate`): `value` is `['OK']`, `'OK'` or the list of reasons why the assessments were not assigned. The back end sends the email to every candidate either way.
+
+| Function | Purpose |
+|----------|---------|
+| `getBulkMessageFailures(results)` | The candidates that are not OK as `{ company_jobposting_candidate_id, name, errors }`; `name` falls back to `Candidate <id>` |
+| `notifyBulkAssessmentFailures(failures)` | One `notification.warning` that stays open (`duration: 0`) under the fixed key `BULK_FAILURES_NOTIFICATION_KEY`: *Assessments were not assigned to N candidates* with every failed candidate in `templates/BulkAssessmentFailures` (a **Name:** reasons line each, scrollable from 240px). A second failed batch replaces it; an empty list closes it |
+
 ### `jobPost.ts`
 Job post utilities:
 
