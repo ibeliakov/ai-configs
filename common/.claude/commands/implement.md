@@ -131,7 +131,7 @@ Research the repositories listed in the context file and write the plan.
 Record the agent ID. When it finishes:
 
 - `open-questions` → rule 5, then resume the same planner.
-- `done` → check that the plan file exists and contains `## Repositories and worktrees` and `## Phases`, then go to the gate.
+- `done` → check that the plan file exists and contains `## Repositories and worktrees`, `## Phases` and `## Tests`, then go to the gate.
 
 ## Step 4. Plan gate (mandatory)
 
@@ -141,6 +141,7 @@ Show the person:
 - the absolute path of `02-plan.md`;
 - the repositories and worktrees table from the plan;
 - the list of phases;
+- from the plan's `Tests` section: the coverage criterion and everything listed under `Not covered`, with the reasons;
 - this notice: writing `approve` also allows local commits in the task worktrees; nothing is pushed until the PR gate.
 
 Tell them they can answer `approve`, write feedback in free text, edit the plan file by hand and then answer `approve`, or answer `cancel`. Then stop and wait.
@@ -179,7 +180,7 @@ Record the worktrees in `state.md`.
 
 ## Step 6. Implement and review, phase by phase
 
-A story is one phase. An epic has one phase per story, in the order of the plan. For each phase:
+The phases come from the approved plan. Normally a story is one phase and an epic has one phase per story; a refactoring or a library replacement starts with a separate phase of characterization tests, which is implemented, reviewed and committed like any other. For each phase, in the order of the plan:
 
 **a. In Development (epic run).** Move this phase's story to In Development, with the same rules as in Step 2.
 

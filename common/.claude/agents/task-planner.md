@@ -79,7 +79,14 @@ Path, symbol and what it gives us. Only things the implementer must use or must 
 
 ## Phases
 ### Phase 1: <title> (<story id>)
-Goal, then numbered steps. Each step names the files to create or modify (path relative to the repository), the concrete change, and the tests to add or update.
+Goal, then numbered steps. Each step names the files to create or modify (path relative to the repository) and the concrete change.
+
+## Tests
+Test runner and test commands per repository, including the coverage command when the project has one.
+| Phase | Test file | Scenarios | Code it covers |
+
+Coverage criterion: <as stated in the rules below>
+Not covered: <each changed file deliberately left without tests, with the reason, or "None">
 
 ## Documentation
 Which pages the documentation agent should create or update, and the facts they must cover.
@@ -102,9 +109,13 @@ Endpoints or fields the frontend relies on, their status, and the fallback.
 Rules for the content:
 
 - **Repositories and worktrees.** List every repository that will be changed, including the documentation repository when the context names one. Worktree directory is `<main checkout>-<id>` next to the main checkout; branch is `sc-<id>/<short-slug>` for a story and `epic-<id>/<short-slug>` for an epic. Base ref comes from the context.
-- **Phases.** A story is one phase. An epic gets one phase per included story, ordered so shared foundations come first. Each phase is committed separately, so each must leave the code building and working on its own.
+- **Phases.** A story is one phase. An epic gets one phase per included story, ordered so shared foundations come first. A refactoring or a library replacement gets one more phase in front: characterization tests (see **Tests**). Each phase is committed separately, so each must leave the code building and working on its own.
 - **Level of detail.** Name real files, symbols and behaviours you have read. The implementer should not need to repeat your research or make design choices. Include a snippet only where a shape matters (a payload, a type, a selector); do not paste whole implementations.
-- **Tests.** Follow the project's testing conventions from its rules. Every phase states which tests cover its changes.
+- **Tests.** All new and changed code is covered by automated tests, written with the project's own test runner and conventions.
+  - The coverage criterion: in a new file every line and every branch is covered; in a changed file every changed line is covered. State it in the `Tests` section and list, per phase, the scenarios that meet it.
+  - Code that cannot reasonably be unit-tested (styles, static configuration, type-only files, generated code) goes under `Not covered` with the reason. The person sees that list at the plan gate, so keep it honest and short.
+  - A refactoring or a library replacement starts with a separate first phase of characterization tests: tests that pin down the current behaviour and pass on the code as it is today. That phase changes no production code. The later phases must keep those tests passing without changing their scenarios.
+  - If a repository has no test runner, do not skip its tests silently and do not plan a test setup on your own. Return an open question: set up testing as the first phase, proceed without automated tests in that repository as a recorded exception, or stop.
 - **No placeholders.** If you cannot decide something from the context and the code, it is an open question, not a "TBD" in the plan.
 
 ## Tools and boundaries
