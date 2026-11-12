@@ -231,7 +231,7 @@ List and array utilities.
 
 Device detection helpers (mobile, tablet, desktop).
 
-`checkIsInAppBrowser()` — true for in-app browsers that usually cannot use the camera (iOS WKWebView without the Safari token, Google app, Facebook/Instagram/LinkedIn/Indeed apps, Android WebView).
+`checkIsInAppBrowser()` — true for in-app browsers that usually cannot use the camera (iOS WKWebView without the Safari token, Google app, Facebook/Instagram/LinkedIn/Indeed apps, Android WebView). The user-agent patterns live in `helpers/inAppBrowser.ts` (`isInAppUserAgent(userAgent)`), which does not load `device-detector-js`; use it where the parser must not load, such as code that runs on every page.
 
 Assessment sitting device report: `getSittingDeviceType()` (`computer | phone | tablet`; an iPad presenting as a Mac with touch counts as `tablet`), `getSittingDeviceInfo()` (user agent, screen size, touch), `getSittingCapabilities()` (camera, screen share, display count, wake lock).
 
@@ -265,7 +265,7 @@ User country/locale detection utilities.
 
 ### `helpers/componentsWrappers.tsx`
 
-`ErrorBoundary` — place it in JSX around a UI block. On a render error it shows the "Something went wrong." fallback, calls `reportBoundaryError`, and on `ChunkLoadError` asks the user to reload. Pass `resetKey` (tab, route, step) to clear the error when the key changes.
+`ErrorBoundary` — place it in JSX around a UI block. On a render error it shows the "Something went wrong." fallback, reports through `reportBoundaryError`, and on `ChunkLoadError` asks the user to reload. Pass `resetKey` (tab, route, step): the error clears when the key changes after an error was caught. `pages/_app.tsx` wraps the whole app with `resetKey={router.asPath}`.
 
 ```tsx
 import ErrorBoundary from '@src/helpers/componentsWrappers';
@@ -273,9 +273,28 @@ import ErrorBoundary from '@src/helpers/componentsWrappers';
 <ErrorBoundary resetKey={activeTab}>...</ErrorBoundary>
 ```
 
-### `helpers/errorReporting.ts`
+### `helpers/monitoring/`
 
-`reportBoundaryError(error, info)` — single entry point for errors caught by `ErrorBoundary`. Logs `[ErrorBoundary]` to the console only when `isDebugEnabled()`. Plug an error-monitoring service in here.
+Error monitoring behind a vendor-neutral facade; Sentry (`@sentry/nextjs`) is the first provider (sc-46855). Errors only: no tracing, no session replay. Without `NEXT_PUBLIC_SENTRY_DSN` at build time (and `SENTRY_DSN` on the server) no Sentry provider is registered. The layer keeps its state on `globalThis.__thtMonitoring`, because `instrumentation.ts` is bundled separately from the pages. Full description: THT-docs `docs/monitoring/sentry-frontend.md`.
+
+Import from `@src/helpers/monitoring` only; `@sentry/*` is an ESLint error outside `helpers/monitoring/providers/`. Initialisation lives in `instrumentation.ts` (server) and `instrumentation-client.ts` (browser); do not initialise anywhere else.
+
+| Export | Purpose |
+|--------|---------|
+| `reportServerError(error, context)` | In every `getServerSideProps` `catch`, before returning `hasError`; skips API 4xx and `ExpectedError` |
+| `ExpectedError` | Throw it for an intentional SSR failure (invalid id, paused job post, no data) so it is not reported |
+| `reportError(error, context?)` | A caught client failure that is a real error (upload, media recorder). The client drops API 4xx and network, timeout and cancel errors on its own |
+| `addMonitoringBreadcrumb({ category, message, data? })` | Expected states that explain a later error (camera denied, no device, device busy) — breadcrumbs, not events |
+| `reportErrorPage(context)` | `pages/_error.tsx` only |
+| `reportBoundaryError` | Called by `ErrorBoundary` only |
+| `setMonitoringUser`, `clearMonitoringUser` | `initClientMonitoring` sets the device id and the `in_app_browser` tag; do not call them from features |
+| `CUSTOM_LAYOUT_SCRIPT_URL` | The name given to scripts injected from a company's custom header and footer (`useCustomHeaderFooter`), so their errors are filtered out |
+
+Rules:
+- Candidate links are credentials: never put a hash, token, `candidate_url_query_string`, email or file name into `tags`, `extra` or messages. `monitoring/scrub.ts` is a safety net, not permission.
+- Do not report expected candidate states (camera permission, validation, an invalid or expired link): use a breadcrumb or nothing.
+- A new SSR page calls `reportServerError(error, context)` in its `catch`; intentional throws use `ExpectedError`.
+- A new provider is a file in `providers/` plus a line in `client.ts` or `server.ts`; application code does not change.
 
 ### `helpers/debugLogger.ts`
 
