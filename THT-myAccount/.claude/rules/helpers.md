@@ -204,7 +204,7 @@ The per-candidate result of `POST …/candidate/messaging/bulk` (`BulkMessageRes
 | Function | Purpose |
 |----------|---------|
 | `getBulkMessageFailures(results)` | The candidates that are not OK as `{ company_jobposting_candidate_id, name, errors }`; `name` falls back to `Candidate <id>` |
-| `notifyBulkAssessmentFailures(failures)` | One `notification.warning` that stays open (`duration: 0`): *Assessments were not assigned to N candidates* with a **Name:** reasons line per candidate, the first `BULK_FAILURES_SHOWN` (10) and *…and N more*; nothing for an empty list |
+| `notifyBulkAssessmentFailures(failures)` | One `notification.warning` that stays open (`duration: 0`) under the fixed key `BULK_FAILURES_NOTIFICATION_KEY`: *Assessments were not assigned to N candidates* with every failed candidate in `templates/BulkAssessmentFailures` (a **Name:** reasons line each, scrollable from 240px). A second failed batch replaces it; an empty list closes it |
 
 ### `jobPost.ts`
 Job post utilities:
