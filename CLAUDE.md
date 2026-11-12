@@ -1,6 +1,6 @@
 # CLAUDE.md — ai-configs
 
-Centralized Claude Code and Cursor IDE configs for THT projects. Rules, commands, and MCP configs live here; projects get hardlinks (Windows) or symlinks (macOS) — no duplication across repos.
+Centralized Claude Code configs for THT projects. Rules, commands, agents, and MCP configs live here; projects get hardlinks (Windows) or symlinks (macOS) — no duplication across repos.
 
 ## Repo structure
 
@@ -10,17 +10,18 @@ ai-configs/
 │   ├── .mcp.windows.json     # shared MCP servers, Windows (e.g. shortcut)
 │   ├── .mcp.mac.json         # shared MCP servers, macOS
 │   └── .claude/
-│       └── commands/         # shared commands available in every project
+│       ├── commands/         # shared commands available in every project
+│       └── agents/           # shared subagents available in every project
 │
 ├── <project-name>/           # one folder per project
 │   ├── CLAUDE.md
-│   ├── .cursorrules
 │   ├── .mcp.windows.json     # project MCP source, Windows
 │   ├── .mcp.mac.json         # project MCP source, macOS
 │   └── .claude/
 │       ├── settings.json
 │       ├── rules/            # detailed rule files referenced from CLAUDE.md
-│       └── commands/         # project-specific commands (override common by filename)
+│       ├── commands/         # project-specific commands (override common by filename)
+│       └── agents/           # project-specific subagents (override common by filename)
 │
 ├── automation/               # Node.js/TypeScript AI automation scripts
 │   └── src/
@@ -67,12 +68,14 @@ secret ever enters git. See README → "Shortcut MCP setup".
 2. Commit and push
 3. Run the setup script on each machine pointing at the local project directory
 
-## Shared vs project-specific commands
+## Shared vs project-specific commands and agents
 
-- **Shared** — `common/.claude/commands/<name>.md` — linked into every project
-- **Project-specific** — `<project>/.claude/commands/<name>.md` — overrides a common command with the same filename
+- **Shared** — `common/.claude/commands/<name>.md`, `common/.claude/agents/<name>.md` — linked into every project
+- **Project-specific** — `<project>/.claude/commands/<name>.md`, `<project>/.claude/agents/<name>.md` — overrides a common file with the same filename
 
-After adding a new file to `common/` or a project's `commands/`, re-run the setup script (Windows) to create the link.
+After adding a new file to `common/` or to a project's `commands/` or `agents/`, re-run the setup script to create the link. Claude Code must be restarted after a project's `.claude/agents/` directory is created for the first time.
+
+Agent files keep `description` to one short line (descriptions load into every session) and pin `model` and `effort` in frontmatter. The `/implement` pipeline (`common/.claude/commands/implement.md` plus the `task-*` agents) is described in README → "`/implement` pipeline"; when changing a stage, keep the command, the agent file and that README section in step.
 
 ## Automation scripts
 
@@ -81,4 +84,4 @@ After adding a new file to `common/` or a project's `commands/`, re-run the setu
 ## Key constraints
 
 - Windows hardlinks require source and target to be on the same drive
-- Common commands are linked first; project-specific commands with the same filename override them
+- A project-specific command or agent overrides the common file with the same filename
