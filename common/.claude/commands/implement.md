@@ -39,6 +39,7 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 9. **Credentials.** Local and staging applications are entered with the test users from local settings. External systems are entered by the person, never by you or an agent. Production is never entered or tested. Credential values never go into any file.
 10. **Language.** Files, prompts and artifacts are in English. Talk to the person in the language they use.
 11. **A stopped agent.** If an agent ends because it reached its turn limit, resume it with "Continue from where you stopped." If it returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent.
+12. **The epic analysis is not yours.** `.tasks/epic-<id>/readiness/` is written by `/epic-readiness`. Read it and give its paths to agents. Never write, move or delete anything inside it.
 
 ---
 
@@ -53,6 +54,8 @@ The first token of the arguments identifies the task; everything after it is the
 
 The task key is `sc-<id>` for a story and `epic-<id>` for an epic. The task directory is `.tasks/<key>/` inside the directory this session was started in; resolve it to an absolute path once and use that path everywhere.
 
+An epic's task directory can already hold `readiness/`, the output of `/epic-readiness`. That directory is not part of this command's run (rule 12).
+
 ## Step 1. Preflight
 
 Check, in this order, and stop at the first failure that blocks the run:
@@ -61,11 +64,63 @@ Check, in this order, and stop at the first failure that blocks the run:
 2. **Not plan mode.** In plan mode every subagent is forced into plan mode too and the implementer cannot write. Ask the person to leave plan mode and run the command again.
 3. **Agents installed.** The five `task-*` agent types are available. If not, tell the person to run the setup script and restart Claude Code (a newly created `agents` directory is picked up only after a restart), and stop.
 4. **GitHub CLI.** Run `gh auth status`. If it fails, warn now that Steps 10 and 11 will be skipped and the pull requests will have to be opened by hand, then continue.
-5. **Existing run.** If the task directory already exists, read `state.md` and ask with AskUserQuestion whether to continue from the recorded stage or start over. On continue, jump to that stage; agent IDs from an earlier session may no longer resume, which rule 4 covers. On start over, keep nothing from the old directory except `attachments/`.
+5. **Existing run.** A run of this command exists only when `<task dir>/state.md` exists. A task directory that holds nothing but `readiness/` is an epic analysis, not a run: go on to Step 2. When `state.md` exists, read it and ask with AskUserQuestion whether to continue from the recorded stage or start over. On continue, jump to that stage; agent IDs from an earlier session may no longer resume, which rule 4 covers. On start over, delete only this command's own files (`state.md`, `01-context.md` to `07-pr.md`, `qa/`), keep `attachments/`, and leave `readiness/` untouched.
 
 ## Step 2. Collect the context
 
-You do this yourself, in the main session.
+You do this yourself, in the main session. Look for an epic analysis first: it decides how much you have to collect.
+
+### 2a. Look for the epic analysis
+
+`/epic-readiness` leaves its results in `.tasks/epic-<epic id>/readiness/` in the session directory: the collected sources, code maps, a report with a verdict, and the person's decisions. The epic in question is the epic itself in an epic run, and the story's parent epic in a story run (read the story first to learn its epic). An analysis exists when `readiness/state.md` exists.
+
+- **A story without an epic** → 2c.
+- **An analysis exists** → 2b.
+- **No analysis** → ask with AskUserQuestion:
+  - *Run `/epic-readiness <epic id>` first* (recommended). Stop here and tell the person to run it and then start `/implement` again. Nothing has been written or moved yet.
+  - *Collect the context here.* Continue with 2c.
+
+### 2b. Use the epic analysis
+
+Keep the main session light. Read the small files yourself and hand the large ones to the planner by path.
+
+**Read.** `readiness/state.md`, `readiness/clarifications.md`, `readiness/sources/index.md`, and from `readiness/README.md` the verdict, the state of the epic, the requirements matrix and the section on what can start now and what waits. List the directory and note the real file names, because they differ between runs (one frontend code map, or one per project). Do not read the specification, the code maps or the raw sources.
+
+**Bring it up to date.** The analysis is a snapshot. Read what changed since and record it under `Changes since the epic analysis` in the context file:
+
+- Epic comments and replies newer than the last comment recorded in `state.md`, including replies in the threads of the comments the analysis posted. Copy each new comment verbatim with its ID, author and time.
+- For the stories in scope, comments newer than the analysis. For every story of the epic, the current workflow state and owner. Stories added to the epic since.
+- The API contract: after `git -C <docs repo> fetch origin`, compare its current version, date and last commit with `state.md`. If it changed, read the difference and summarise it; the contract review in the report predates the change.
+- Repositories: the current commit of each analysed branch against the commit in `state.md`. The code maps describe the older commit.
+- A source the analysis lists as not read or partly read: try it again only when it matters for the scope of this run.
+
+If a new comment or a contract change contradicts the report or a decision in `clarifications.md`, treat it as an ambiguity (2d).
+
+**Scope.** Take the scope from the verdict without asking:
+
+- `yes` → everything the task covers.
+- `partly` → only the areas the report lists as able to start now. Every area that waits goes under `Out of scope` with what it waits for and who owes the answer. The person sees this at the plan gate and can change it there.
+- The person's decisions in `clarifications.md` apply on top, for example "start on mocks of the proposed contract" or "wait until the contract is agreed".
+- An area that waited at the time of the analysis and has since been unblocked (an answer arrived, the contract was updated) is in scope again. Say so explicitly.
+- If nothing in the task can start (verdict `no`, a decision to wait, or a story whose whole area waits), do not plan around it. Tell the person what blocks the start and ask whether to go ahead on fallbacks and mocks, narrow the task, or stop.
+
+**Decisions and open questions.**
+
+- Copy the rows of `clarifications.md` into `Clarifications` in the context file, marked as coming from the epic analysis. They are settled: do not ask them again.
+- Questions the analysis already sent to the backend developer or the product manager (the `Posted comments` table in `state.md` and the drafts in `readiness/comments/`) go under `Questions already asked`, each with its status after the update: answered, with where, or still open. Nobody asks them again; the planner plans around the open ones.
+- When `clarifications.md` or `state.md` records the branches the person chose for the analysis, use them as base branches in 2d without asking, and state them at the plan gate.
+
+**What the analysis does not hold.**
+
+- Story run: read the story itself from Shortcut as in 2c ("A story"); it is small and has to be current. Do not read the parent epic again. Take the sibling stories from the report, with their current states, and name the rows of the requirements matrix that this story covers.
+- Epic run: choose the phases by the rules of 2c ("An epic") from the story list of the analysis with current states. Do not read the stories again.
+- Do not download a file that is already in `readiness/attachments/`.
+
+**Context file.** Fill the `Epic analysis` section of the template. Under `Requirements` give the paths of the specification and the report instead of copying them. Under `Acceptance criteria` list the requirements in scope by their IDs from the matrix, each with its one-line statement.
+
+### 2c. Full collection
+
+Used when there is no epic analysis, or the person chose to collect here.
 
 **Sources.** Use the Shortcut MCP tools and the Shortcut REST API together. The REST API returns what MCP does not, such as attached files:
 
@@ -102,15 +157,17 @@ The epic is reference material. The scope of the run stays the story you were gi
 - If an external system asks for a login, ask the person to log in in the browser window that Playwright opened and wait for them to confirm. Never type credentials into an external system.
 - If something still cannot be read, do not skip it silently: tell the person what and why, and ask for the content as text or a screenshot.
 
-**In Development (story run).** As soon as the story is read, move it to In Development: find the state named "In Development" in the story's own workflow and call `update_story` with that state. Do not move a story that is already in In Development or in any later state, and never move a story backwards. If the state cannot be found or the write is refused, say so and continue; this never blocks the run. For an epic, stories are moved one by one in Step 6.
+### 2d. In every run
 
-**Ambiguity.** If the requirements are unclear, incomplete or contradict each other (description against comments, story against epic), ask with AskUserQuestion now. Do not carry a guess into the plan.
+**In Development (story run).** Once 2a is settled and the run continues, move the story to In Development: find the state named "In Development" in the story's own workflow and call `update_story` with that state. Do not move a story that is already in In Development or in any later state, and never move a story backwards. If the state cannot be found or the write is refused, say so and continue; this never blocks the run. For an epic, stories are moved one by one in Step 6.
+
+**Ambiguity.** If the requirements are unclear, incomplete or contradict each other (description against comments, story against epic, a newer comment against the epic analysis), ask with AskUserQuestion now. Do not carry a guess into the plan. Do not ask what the epic analysis already settled or already sent to someone else.
 
 **Repositories.**
 
 1. Find the workspace project map: a `CLAUDE.md` in the session directory or its parent that lists the projects and their roles. If the session directory is itself a single project, that project is the target.
 2. Decide which repositories the task changes (frontend projects, and the documentation repository when the workspace has one) and which are read-only references (backend).
-3. For every repository that will change, run `git -C <repo> fetch origin --prune` and ask the person for the base branch with AskUserQuestion, offering the integration branches found in `git -C <repo> branch -r` (for example `stage`, `beta-stage`, a current sprint branch, `main`). Ask for all repositories in one call.
+3. For every repository that will change, run `git -C <repo> fetch origin --prune` and ask the person for the base branch with AskUserQuestion, offering the integration branches found in `git -C <repo> branch -r` (for example `stage`, `beta-stage`, a current sprint branch, `main`). Ask for all repositories in one call. Skip the question for a repository whose branch the person already chose during the epic analysis (2b).
 4. Find the code read path for the planner: a checkout of that repository whose `HEAD` equals `origin/<base>` (check the main checkout and `git -C <repo> worktree list --porcelain`). If there is none, the read path is the ref `origin/<base>` itself.
 5. The rules path is the main checkout: `<repo>/CLAUDE.md` and `<repo>/.claude/rules/`.
 
@@ -124,6 +181,7 @@ Launch `task-planner`:
 Task key: <key>
 Context file: <task dir>/01-context.md
 Plan file to write: <task dir>/02-plan.md
+Epic analysis: <readiness directory, or "none">
 
 Research the repositories listed in the context file and write the plan.
 ```
@@ -141,6 +199,7 @@ Show the person:
 - the absolute path of `02-plan.md`;
 - the repositories and worktrees table from the plan;
 - the list of phases;
+- when an epic analysis was used: its date and verdict, what is in scope now, what waits and for whom, and the base branches taken from it;
 - from the plan's `Tests` section: the coverage criterion and everything listed under `Not covered`, with the reasons;
 - this notice: writing `approve` also allows local commits in the task worktrees; nothing is pushed until the PR gate.
 
@@ -383,6 +442,7 @@ Update it after every stage change, every agent launch and every commit.
 - Type: story | epic
 - Stage: context | planning | plan-gate | worktrees | phase <n> implement | phase <n> review | docs | qa | pr-gate | pr-review | done | cancelled
 - Plan: revision <n>, approved <date and time> | not approved
+- Epic analysis: <readiness directory>, run <date>, brought up to date <date and time> | none
 - Application: <URL> (started by the orchestrator: yes | no) | not available
 
 ## Agents
@@ -413,14 +473,33 @@ QA fix rounds: 0 · Bot rounds per pull request: 0
 ## User instructions
 <the extra instructions from the command line, verbatim, or "None">
 
+## Epic analysis
+<"None" when the epic has no `/epic-readiness` run>
+- Directory: <absolute path of readiness/>
+- Run: <date> · frontend can start: <yes | partly | no> · contract: <sufficient | needs changes | none>
+- Contract: <path>, <status>, <version>
+
+| File | What it contains |
+<one row per file the agents should read: the report, the specification, the contract, the person's decisions, each code map, the source inventory, prototype screenshots>
+
+### Scope from the verdict
+In scope now: <areas, with their requirement IDs>
+Waiting: <area · what it waits for · who owes it>
+
+### Changes since the epic analysis
+<new comments verbatim with ID, author and time; contract changes; story state changes; repository commits; or "None">
+
+### Questions already asked
+| Question | Addressee | Where it was asked | Status |
+
 ## Requirements
-<the description, verbatim; for an epic the epic description first, then each included story under its own heading>
+<the description, verbatim; for an epic the epic description first, then each included story under its own heading. With an epic analysis: the story description verbatim (story run), then the paths of the specification and the report instead of a copy>
 
 ## Acceptance criteria
-<numbered AC-1, AC-2, …; for an epic grouped by story>
+<numbered AC-1, AC-2, …; for an epic grouped by story. With an epic analysis: the requirement IDs in scope from the matrix, each with its one-line statement>
 
 ## Parent epic
-<story run only; "None" when the story has no epic>
+<story run only; "None" when the story has no epic; "See Epic analysis" when the epic was analysed, followed only by the sibling stories table>
 - Epic: <id>, <title>, <URL>
 
 ### Epic description
