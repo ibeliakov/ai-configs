@@ -218,7 +218,7 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 
 | Stage | Who | Output |
 |---|---|---|
-| Context: story or epic, comments, attachments, linked videos and documents | orchestrator | `01-context.md` |
+| Context: the `/epic-readiness` analysis of the epic when there is one, otherwise the story or epic, comments, attachments, linked videos and documents | orchestrator | `01-context.md` |
 | Plan: read-only code research | `task-planner` (fable) | `02-plan.md` |
 | **Plan gate**: `approve`, free-text feedback (the same planner revises the plan), or a manual edit of the file followed by `approve` | you | |
 | Worktrees: `<repo>-<id>` from the chosen base branch for every repository the plan touches | orchestrator | |
@@ -233,6 +233,7 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 How it behaves:
 
 - **Nothing is built before `approve`.** No worktrees, no code changes, no commits.
+- **The epic analysis is reused.** When `/epic-readiness` has been run for the epic (or for a story's parent epic), `/implement` does not collect the sources again. It reads what changed since the analysis (new comments, a new contract version, story states), takes your decisions and the base branches from it, and gives the planner the report, the specification and the code maps by path. With the verdict `partly` it plans only the areas that can start now; what waits is shown at the plan gate. Without an analysis it recommends running `/epic-readiness` first and lets you choose to collect the context itself.
 - **A story** is read together with its parent epic: the epic's description, comments, documents and backend links go into the context as reference, and its other stories are listed so the planner sees the boundaries. Only the story itself is implemented.
 - **An epic** is planned as one plan with one phase per frontend story. Backend stories are included only when the extra instructions ask for them. Each repository gets one branch and one pull request.
 - **Tests.** All new and changed code is covered by automated tests: every line and branch of a new file, every changed line of a changed file. The plan has a `Tests` section, and anything it leaves uncovered is shown to you at the plan gate. A refactoring or a library replacement starts with a separate phase of characterization tests. The reviewer blocks a phase that misses this.
@@ -300,7 +301,7 @@ What it writes outside your machine: only the comments you approved. No story is
 
 The model is pinned in the command's frontmatter (`model`, `effort`). The override lasts until your next message, so the command asks its questions and runs the approval gate through question dialogs, within the same turn.
 
-Artifacts live in `.tasks/epic-<id>/readiness/` inside the directory where the session was started, next to the `/implement` files of the same epic and separate from them.
+Artifacts live in `.tasks/epic-<id>/readiness/` inside the directory where the session was started, next to the `/implement` files of the same epic and separate from them. `/implement` reads this directory and never changes it.
 
 Requirements: the setup script has been run for the project, the session is not in plan mode, and `SHORTCUT_API_TOKEN` is set for reading attachments (see [Shortcut MCP setup](#shortcut-mcp-setup)).
 
