@@ -271,6 +271,39 @@ Requirements:
 
 Models and effort are pinned in each agent's frontmatter; to change them, edit the agent file. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
 
+## `/epic-readiness` command
+
+`/epic-readiness <epic ID or URL> [extra instructions]` checks whether a Shortcut epic is ready for frontend work. The command (`common/.claude/commands/epic-readiness.md`) runs in the main session and answers three questions: is there enough to start the frontend, which implementation questions are open, and is the API contract sufficient.
+
+| Stage | Output |
+|---|---|
+| Update the local backend, documentation and frontend repositories (`fetch` and `pull --ff-only` on the current branch) | table of branches and commits |
+| Collect the sources: epic, stories, all comments, the specification, attachments, links, recorded walkthroughs | `sources/`, `attachments/` |
+| Find the API contract in the documentation repository, in comments or in the backend repository | |
+| Map the code with read-only subagents: frontend projects, and the contract against the backend code | `code-map-frontend.md`, `code-map-backend.md` |
+| Analyse: requirements against the contract, contradictions, undefined states, open threads | |
+| Questions to you wherever the choice of path is yours | `clarifications.md` |
+| Report with the three answers | `README.md` |
+| Draft comments for the backend developer and the product manager, each with a translation into your language | `comments/` |
+| **Approval gate**: `Post`, `Edit` or `Skip` for each draft | |
+| Post the approved comments | `state.md` |
+
+How it behaves:
+
+- **Local code.** Repositories are updated first and then read from disk. A repository with local changes, without an upstream or diverged from it is left alone, and you are asked how to go on. Branches are never switched.
+- **Logins.** When a linked site needs a login, the command opens it in the Playwright browser and waits for you to log in. It never asks for a password.
+- **Comments.** New requests go into one comment per addressee on the epic. A point that answers an existing comment is posted as a reply in that comment's thread, in the epic or in the story where the comment is.
+- **Language.** Comments are posted in English. Each draft is shown with a translation, which is not posted.
+- **A repeated run** on the same epic reads what changed since the last one (new comments, replies, a new contract version), updates the verdict and drafts follow-ups in the existing threads.
+
+What it writes outside your machine: only the comments you approved. No story is moved or edited.
+
+The model is pinned in the command's frontmatter (`model`, `effort`). The override lasts until your next message, so the command asks its questions and runs the approval gate through question dialogs, within the same turn.
+
+Artifacts live in `.tasks/epic-<id>/readiness/` inside the directory where the session was started, next to the `/implement` files of the same epic and separate from them.
+
+Requirements: the setup script has been run for the project, the session is not in plan mode, and `SHORTCUT_API_TOKEN` is set for reading attachments (see [Shortcut MCP setup](#shortcut-mcp-setup)).
+
 ## Workflow: editing rules
 
 Edit files directly in `ai-configs/` and commit — symlinks in all projects reflect changes immediately (Mac).  
