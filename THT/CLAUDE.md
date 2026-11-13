@@ -40,6 +40,7 @@ Env-змінні задані в `.claude/settings.local.json`:
 - `/qa-diff [гілка або uncommitted]` — тестування за git diff
 - `/qa-feature [опис фічі]` — тестування конкретної фічі
 - `/implement [ID або URL сторі чи епіка]` — пайплайн роботи над таском із Shortcut: план → реалізація → рев'ю → документація → QA → PR
+- `/epic-readiness [ID або URL епіка]` — аналіз готовності епіка до старту фронтенду: джерела епіка, API-контракт, відкриті питання, чернетки коментарів для BE та PM із публікацією після апруву
 - `/commit` — коміт зі стандартним форматом `{task}: {description}`
 - `/slack-digest` — дайджест Slack повідомлень
 - `/slack-issues` — Slack → аналіз коду → `THT-docs/digests/*.json` для секції «Slack digests» (обгортка; логіка в `THT-docs/.claude/commands/slack-issues.md`)
