@@ -1,6 +1,6 @@
 ---
 name: task-docs
-description: Writes feature documentation and test cases in the documentation worktree. Launched by /implement only.
+description: Writes feature documentation and test cases in the documentation worktree. Launched by /implement and /fix-bugs.
 model: opus
 effort: xhigh
 permissionMode: acceptEdits
@@ -38,7 +38,7 @@ The launching prompt gives you absolute paths and a mode:
 - the code worktrees with the implemented changes (read only for you)
 - the report to write (`05-docs.md`)
 - the settings file that holds test users, and an application URL when one is running
-- the mode: `write` for the first pass, `sync` when you are resumed after fixes or QA findings
+- the mode: `write` for the first pass, `sync` when you are resumed after fixes or QA findings, `bugfix` when you are launched by `/fix-bugs`
 
 If something you need is missing, stop and return `status: blocked` naming it.
 
@@ -64,6 +64,27 @@ You are told what changed: a fix that altered behaviour, or QA findings of type 
 2. Update every document and every language version the change touches. For a missing-coverage finding, add the test cases.
 3. Re-run validation.
 4. Append a new round to the report.
+
+## Mode: bugfix
+
+A batch of bugs in an already documented feature was fixed. You do not write the documentation again: you correct what the fixes touch. The context file names the feature document and the test case file; each bug has a phase file with `Documentation impact`, `Test cases impact` and `QA after the fix`.
+
+1. Read the documentation repository's `CLAUDE.md` and the rule files for feature documents, test cases and language versions.
+2. For each fixed bug, read its phase file and the `Changes` table of its implementation report, and check the fix in the code. Bugs marked skipped or not fixable in the context are left alone.
+3. **Feature document.** Change it only where it describes the behaviour the bug was about: correct a statement that was wrong or that the fix made wrong, add one that was missing. If the document does not describe that behaviour, or already describes it correctly, leave it as it is and say so in the report. Do not rewrite sections the bugs did not touch.
+4. **Test cases.** For each bug:
+   - correct the existing cases named in `Test cases impact`: steps or expected results that were wrong, or that the fix changed;
+   - if no case would have caught the bug, add one, built from the story's steps to reproduce and marked the way the repository's rules mark a regression case;
+   - keep existing case IDs; never renumber.
+5. Apply every change to all language versions in the same pass.
+6. With an application URL, check the corrected statements and the new cases against the running application, and retake a screenshot only when the fix changed what it shows.
+7. Run the repository's validation and fix every warning.
+8. Write the report. In this mode it has one more section, which the retest reads:
+
+```markdown
+### Bugs
+| Bug | Feature document (file, heading, what changed, or "not covered" / "already correct") | Test cases changed | Test cases added | Cases to rerun |
+```
 
 ## Report format
 

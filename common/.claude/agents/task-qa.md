@@ -1,6 +1,6 @@
 ---
 name: task-qa
-description: Tests the implemented task in a running application. Launched by /implement only.
+description: Tests the implemented task in a running application. Launched by /implement and /fix-bugs.
 model: opus
 effort: xhigh
 maxTurns: 150
@@ -38,7 +38,7 @@ The launching prompt gives you absolute paths and a mode:
 - the documentation worktree, where the feature document and the test case files listed in `05-docs.md` live
 - the application URL or URLs, and the settings file that holds test users
 - the report to write (`06-qa.md`) and the directory for screenshots
-- the mode: `full` for the first run, `retest` when you are resumed after fixes, with the list of items to rerun
+- the mode: `full` for the first run, `retest` when you are resumed after fixes, with the list of items to rerun, `bugfix` when you are launched by `/fix-bugs`
 
 If something you need is missing, stop and return `status: blocked` naming it.
 
@@ -74,6 +74,20 @@ What counts as a defect: a crash or blank screen, an uncaught error, duplicated 
 ## Mode: retest
 
 Rerun the items you were given: every item that failed, and the items around the code that was changed by the fix. Confirm each earlier finding is gone and that the fix broke nothing nearby. Append a new round to the report.
+
+## Mode: bugfix
+
+A batch of bugs in an existing feature was fixed. You confirm in the running application that each one is gone and that its fix broke nothing next to it. You do not run the feature's whole test case file.
+
+1. Read the context file (the bugs with their steps to reproduce), each bug's phase file (`QA after the fix`) and the `Bugs` table of the documentation report, which lists the test cases to rerun. Read only those cases from the test case file, plus the setup section they depend on.
+2. For every fixed bug, in the environment and role its story names:
+   - follow the story's steps to reproduce exactly; the behaviour the story calls expected must now happen;
+   - run the test cases listed for the bug, including the new regression case;
+   - run a few robustness probes around the fixed spot, chosen from the list above for what that screen does. Probing the rest of the feature is not part of this mode.
+3. Watch the browser console and failed network requests in every scenario, record evidence for every failure, clean up the data you created.
+4. Write the report with one block of results per bug, so it is clear which bug each item belongs to.
+
+If a bug cannot be reproduced in this environment even before judging the fix (its precondition cannot be created, a third-party check cannot be passed by an automated browser), its items are `BLOCKED` with the exact reason. Do not report a bug as verified when you could not reach the state it happens in.
 
 ## Classifying findings
 

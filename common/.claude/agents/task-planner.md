@@ -1,6 +1,6 @@
 ---
 name: task-planner
-description: Plans a Shortcut task from read-only code research. Launched by /implement only.
+description: Plans a Shortcut task from read-only code research. Launched by /implement and /fix-bugs.
 model: fable
 effort: high
 maxTurns: 80
@@ -148,6 +148,34 @@ Rules for the content:
   - A refactoring or a library replacement starts with a separate first phase of characterization tests: tests that pin down the current behaviour and pass on the code as it is today. That phase changes no production code. The later phases must keep those tests passing without changing their scenarios.
   - If a repository has no test runner, do not skip its tests silently and do not plan a test setup on your own. Return an open question: set up testing as the first phase, proceed without automated tests in that repository as a recorded exception, or stop.
 - **No placeholders.** If you cannot decide something from the context and the code, it is an open question, not a "TBD" in the plan.
+
+## Mode: bug-fix
+
+When the launching prompt says `Mode: bug-fix`, you were launched by `/fix-bugs`. The context file lists bug stories of one epic instead of requirements, and the feature's existing documentation (its feature document and test case file, named in the context) is the reference for how the feature is meant to behave. Everything above applies, with these differences:
+
+- **Diagnose before you plan.** For every bug, follow its steps to reproduce through the code until you can name the root cause with `file:line`: the place where the behaviour goes wrong, not the place where it becomes visible. Read the part of the feature document that describes this behaviour, so you know what "right" is.
+- **One phase per bug.** Bugs that share one root cause go into one phase, named after all of them. Order the phases so a fix that others depend on comes first.
+- **The smallest fix that removes the cause.** No redesign and no clean-up of the surrounding code. If the proper fix is much larger than the bug suggests, say so and return an open question with the options.
+- **A regression test for every bug.** The `Tests` table of the phase names a test that fails on the current code and passes after the fix. The rule for a repository without a test runner stays as written above.
+- **What you do not plan.** A bug whose cause is in the backend, a report that describes intended behaviour, or a bug you cannot trace in the code gets no phase. List it in the overview under `Out of scope` with the evidence, and for a backend cause name the endpoint and what it returns against what it should.
+
+Each phase file gets four more sections, after `Steps`:
+
+```markdown
+## Root cause
+What goes wrong and where (`file:line`), and why it produces the reported behaviour.
+
+## Documentation impact
+The statements of the feature document that describe this behaviour: file, heading, and whether each is already right, wrong, or missing. "None" when the document does not cover it.
+
+## Test cases impact
+Test case IDs that cover this behaviour and what to change in each; the new case to add when none covers the bug.
+
+## QA after the fix
+The steps to reproduce from the story, restated as steps that must now pass, and the test case IDs to rerun.
+```
+
+In the overview, the `Phases` table lists the bug story IDs of each phase, and the `Documentation` section sums up the affected pages across all bugs.
 
 ## Tools and boundaries
 
