@@ -1,6 +1,6 @@
 ---
 name: task-implementer
-description: Implements an approved plan phase and fixes findings in task worktrees. Launched by /implement only.
+description: Implements an approved plan phase and fixes findings in task worktrees. Launched by /implement and /fix-bugs.
 model: opus
 effort: xhigh
 permissionMode: acceptEdits
@@ -68,6 +68,12 @@ Characterization tests have their own rules:
 
 - In a characterization phase you write tests only. They describe the behaviour the code has today and must pass on the unchanged code. Do not touch production code in that phase. If the current behaviour looks like a bug, pin it down as it is and mention it in your notes.
 - In the phases that follow, those tests must keep passing with their scenarios unchanged. If one of them has to change, the behaviour changed: unless the plan says this behaviour is meant to change, stop and return an open question.
+
+A bug phase (launched by `/fix-bugs`; the phase file has a `Root cause` section) has its own order:
+
+- Write the regression test first and run it: it has to fail on the current code for the reason the phase file gives. If it passes, the diagnosis is wrong or the bug is already fixed: stop and return an open question.
+- Then make the fix the phase file describes, and nothing around it. The test now passes and the rest of the suite still does.
+- If the root cause in the phase file turns out to be wrong once you are in the code, do not improvise another fix: report what you found and return an open question.
 
 A shell `cd` does not carry over between commands. Use absolute paths, `git -C <worktree>`, or `cd <worktree> && <command>` in a single command.
 

@@ -274,6 +274,26 @@ Requirements:
 
 Models and effort are pinned in each agent's frontmatter; to change them, edit the agent file. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
 
+## `/fix-bugs` command
+
+`/fix-bugs <epic ID or URL> [bug story IDs] [extra instructions]` fixes a batch of bug stories of one epic in a single run. The command (`common/.claude/commands/fix-bugs.md`) is a lighter sibling of `/implement` and uses the same five `task-*` agents, in their bug-fix modes.
+
+| Stage | Who | Output |
+|---|---|---|
+| Choose the bugs: open bug stories of the epic are listed and you answer which to fix (numbers, IDs or `all`); backend bugs are left out | you | |
+| Context: the chosen bugs in full, and the paths of the feature's document and test case file in the documentation repository. The epic is not read | orchestrator | `01-context.md` |
+| Diagnosis: root cause, fix, regression test, affected documentation and test cases, per bug | `task-planner` | `02-plan.md`, `02-plan/phase-<n>.md` |
+| **Diagnosis gate**: `approve`, feedback, `skip <ID>` or `cancel` | you | |
+| Fix and review, one bug at a time: failing regression test first, then the fix; one commit per bug | `task-implementer`, `task-reviewer` | code, `03-implementation/`, `04-review/` |
+| Documentation: the feature document is corrected only where it describes the affected behaviour; test cases are corrected, and a regression case is added for a bug no case would have caught | `task-docs` | `05-docs.md` |
+| Retest in the browser (Playwright): each story's steps to reproduce, the test cases tied to the bug, and a few unusual actions around the fixed spot | `task-qa` | `06-qa.md` |
+| **PR gate** (`yes / no / edit`), one pull request per repository, then the review bot loop | you, orchestrator | `07-pr.md` |
+| Summary and a short comment in every fixed bug story (`yes / no / edit <N>`) | orchestrator | |
+
+A problem found in the retest goes back through fix, review and documentation, and the affected items are run again. What the command writes outside your machine is the same as for `/implement`: a bug story moves to In Development when its fix starts, local commits follow the diagnosis approval, push and pull requests need `yes` at the PR gate, comments need `yes`.
+
+Artifacts live in `.tasks/epic-<id>/bugfix-<n>/`, one directory per run, next to the `/implement` files and the `/epic-readiness` analysis of the same epic and separate from them. The requirements are the same as for `/implement`, including the fresh session.
+
 ## `/epic-readiness` command
 
 `/epic-readiness <epic ID or URL> [extra instructions]` checks whether a Shortcut epic is ready for frontend work. The command (`common/.claude/commands/epic-readiness.md`) runs in the main session and answers three questions: is there enough to start the frontend, which implementation questions are open, and is the API contract sufficient.

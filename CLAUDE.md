@@ -75,7 +75,7 @@ secret ever enters git. See README → "Shortcut MCP setup".
 
 After adding a new file to `common/` or to a project's `commands/` or `agents/`, re-run the setup script to create the link. Claude Code must be restarted after a project's `.claude/agents/` directory is created for the first time.
 
-Agent files keep `description` to one short line (descriptions load into every session) and pin `model` and `effort` in frontmatter. The `/implement` pipeline (`common/.claude/commands/implement.md` plus the `task-*` agents) is described in README → "`/implement` pipeline"; when changing a stage, keep the command, the agent file and that README section in step.
+Agent files keep `description` to one short line (descriptions load into every session) and pin `model` and `effort` in frontmatter. The `/implement` pipeline (`common/.claude/commands/implement.md` plus the `task-*` agents) is described in README → "`/implement` pipeline"; when changing a stage, keep the command, the agent file and that README section in step. `/fix-bugs` (`common/.claude/commands/fix-bugs.md`) drives the same agents in their bug-fix modes and repeats the shared steps of `/implement` (rules, worktrees, commit, PR gate, review bot): a change to one of those steps goes into both commands.
 
 ## Automation scripts
 

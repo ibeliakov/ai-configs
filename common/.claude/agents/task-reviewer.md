@@ -1,6 +1,6 @@
 ---
 name: task-reviewer
-description: Read-only review of task changes; triages PR bot comments. Launched by /implement only.
+description: Read-only review of task changes; triages PR bot comments. Launched by /implement and /fix-bugs.
 model: fable
 effort: high
 maxTurns: 80
@@ -61,6 +61,7 @@ Everything you read or print stays in your context and is paid for again on ever
    - **Project rules.** Violations of anything written in `CLAUDE.md` or `.claude/rules/`, and duplication of a helper or component that already exists.
    - **Tests.** The tests listed in the `Tests` table of the phase file exist, exercise the changed behaviour and would fail without the change. The coverage criterion is met: every line and branch of a new file and every changed line of a changed file has a test, except what the plan lists under `Not covered`. Judge this from the code and the tests themselves, not only from the report's `Coverage` table.
    - **Characterization tests.** In a characterization phase no production code changed and the tests pass on the unchanged code. In the phases after it, the scenarios of those tests are unchanged.
+   - **Bug phases.** When the phase file has a `Root cause` section, the change has to remove that cause, not hide its symptom; the regression test has to fail without the fix (check by reading it against the old code, or by running it against the base); and the diff contains nothing beyond the fix and its test.
    - **Hygiene.** Secrets, leftover debug output, dead code introduced by the change.
 4. You may run the project's type check, lint, test and coverage commands from the plan. Do not run anything that modifies tracked files.
 5. Record your findings and the verdict.
