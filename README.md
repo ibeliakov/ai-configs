@@ -219,11 +219,11 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 | Stage | Who | Output |
 |---|---|---|
 | Context: the `/epic-readiness` analysis of the epic when there is one, otherwise the story or epic, comments, attachments, linked videos and documents | orchestrator | `01-context.md` |
-| Plan: read-only code research | `task-planner` (fable) | `02-plan.md` |
+| Plan: read-only code research | `task-planner` (fable) | `02-plan.md` (overview), `02-plan/phase-<n>.md` |
 | **Plan gate**: `approve`, free-text feedback (the same planner revises the plan), or a manual edit of the file followed by `approve` | you | |
 | Worktrees: `<repo>-<id>` from the chosen base branch for every repository the plan touches | orchestrator | |
-| Implementation, phase by phase | `task-implementer` (opus) | code, `03-implementation.md` |
-| Review of each phase, with a fix loop | `task-reviewer` (fable) | `04-review.md` |
+| Implementation, phase by phase, a new agent for each phase | `task-implementer` (opus) | code, `03-implementation/phase-<n>.md` |
+| Review of each phase from its diff, with a fix loop, a new agent for each phase | `task-reviewer` (fable) | `04-review/phase-<n>.md` |
 | Documentation and test cases in the documentation repository | `task-docs` (opus) | `05-docs.md` |
 | QA in the running application: test cases, documented behaviour, unusual user actions | `task-qa` (opus) | `06-qa.md` |
 | **PR gate**: `yes / no / edit` | you | |
@@ -240,6 +240,7 @@ How it behaves:
 - **Open questions go to you.** When an agent sees two viable approaches or an ambiguity, it stops and the orchestrator asks you; it never decides on its own.
 - **QA findings** go back to the implementer, the fix is reviewed again, the documentation is updated when behaviour changed, and QA reruns the affected cases.
 - **Review bot comments** are triaged by the reviewer: fixed, or answered with a reason. Fixes are pushed once per round.
+- **Token use.** An agent reads its whole history again on every turn, so the pipeline keeps histories short. The implementer and the reviewer are new instances for every phase and read only the plan overview and their phase file; the reviewer works from the diff of the phase; the orchestrator does not read plans and reports in full. For the same reason `/implement` has to be started in a fresh session: in a session that already holds a long conversation (for example a `/epic-readiness` run) every orchestrator turn pays for that conversation again, and the command asks you to start a new one. A long run is also cheaper to continue in a new session: the state is in files.
 
 What it writes outside your machine:
 
@@ -256,6 +257,7 @@ Requirements:
 
 - the setup script has been run for the project, so the command, the agents and `.mcp.json` are in place;
 - the session is not in plan mode (subagents would be forced into plan mode and could not write);
+- the session is new, or was cleared with `/clear`, before the command is started;
 - `gh` is authenticated, otherwise the pull request stages are skipped;
 - `SHORTCUT_API_TOKEN` is set (see [Shortcut MCP setup](#shortcut-mcp-setup)); it is used to read attachments;
 - test users for the local and staging applications are listed in the project's `.claude/settings.local.json`, so agents can log in without asking:

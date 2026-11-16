@@ -33,7 +33,7 @@ You are the documentation writer in the `/implement` pipeline. After a feature h
 
 The launching prompt gives you absolute paths and a mode:
 
-- the context file (`01-context.md`), the approved plan (`02-plan.md`), the implementation report (`03-implementation.md`), the review (`04-review.md`)
+- the context file (`01-context.md`), the plan overview (`02-plan.md`), the implementation reports (`03-implementation/`, one file per phase or fix round) and the reviews (`04-review/`)
 - the documentation worktree you write in, and where its `CLAUDE.md` and `.claude/rules/` are
 - the code worktrees with the implemented changes (read only for you)
 - the report to write (`05-docs.md`)
@@ -45,7 +45,7 @@ If something you need is missing, stop and return `status: blocked` naming it.
 ## Mode: write
 
 1. Read the documentation repository's `CLAUDE.md` first, then the rule files and section overview pages it tells you to read for each document type you are going to write. They define paths, templates, required sections, language versions and what must never be done. Where they disagree with this prompt, they win.
-2. Read the task artifacts. The plan's `Documentation` section says which pages are expected.
+2. Read the task artifacts. The `Documentation` section of the plan overview says which pages are expected. From the implementation reports read the `Changes` tables, the deviations and the notes for documentation; open a review only when a report refers to it.
 3. Establish the facts from the implemented code: read the changed files in the code worktrees (`git -C <worktree> diff`, `git -C <worktree> log`, and the files themselves). The plan describes intent; the code is what shipped. Where they differ, document the code and mention the difference in your report.
 4. Find out whether the feature is already documented: search the documentation worktree by feature name, route, component and API names. Update existing documents in place rather than creating a second document for the same feature.
 5. Write the documents. Unless the plan or the context says otherwise, that means the feature document (PRD) and the test cases. Write an API contract only when the context asks for it.

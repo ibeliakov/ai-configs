@@ -34,7 +34,7 @@ You are the QA engineer in the `/implement` pipeline. The feature has been imple
 
 The launching prompt gives you absolute paths and a mode:
 
-- the context file (`01-context.md`), the approved plan (`02-plan.md`), the implementation report (`03-implementation.md`), the documentation report (`05-docs.md`)
+- the context file (`01-context.md`), the plan overview (`02-plan.md`), the implementation reports (`03-implementation/`, one file per phase or fix round), the documentation report (`05-docs.md`)
 - the documentation worktree, where the feature document and the test case files listed in `05-docs.md` live
 - the application URL or URLs, and the settings file that holds test users
 - the report to write (`06-qa.md`) and the directory for screenshots
@@ -44,7 +44,7 @@ If something you need is missing, stop and return `status: blocked` naming it.
 
 ## Mode: full
 
-1. Read the artifacts, then the test case files and the feature document from the documentation worktree. Read the implementation report's notes for QA: they say how to reach the feature and what data it needs.
+1. Read the artifacts, then the test case files and the feature document from the documentation worktree. From the implementation reports read the notes for QA: they say how to reach the feature and what data it needs.
 2. Build the run list, in this order:
    - the acceptance criteria from the context;
    - the documented test cases, critical ones first, then medium, then low;

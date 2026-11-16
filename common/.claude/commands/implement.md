@@ -18,9 +18,9 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 
 | Agent | Job | Writes |
 |---|---|---|
-| `task-planner` | researches the code, writes the plan | `02-plan.md` |
-| `task-implementer` | implements a phase, fixes findings | code in worktrees, `03-implementation.md` |
-| `task-reviewer` | reviews changes, verifies fixes, triages bot comments | `04-review.md`, triage in `07-pr.md` |
+| `task-planner` | researches the code, writes the plan | `02-plan.md` (overview), `02-plan/phase-<n>.md` |
+| `task-implementer` | implements a phase, fixes findings | code in worktrees, `03-implementation/phase-<n>.md` |
+| `task-reviewer` | reviews changes, verifies fixes, triages bot comments | `04-review/phase-<n>.md`, triage in `07-pr.md` |
 | `task-docs` | documents the feature, writes test cases | documentation worktree, `05-docs.md` |
 | `task-qa` | tests the running application | `06-qa.md` |
 
@@ -31,7 +31,12 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 1. **Launching agents.** Call the Agent tool with `subagent_type` set to one of the five names above. Do not pass `model`, `effort` or `isolation`: the model and effort are pinned in each agent's file and a parameter would override them. Do not use any other agent type or a fork, and do not do an agent's job yourself. If an agent cannot be launched, stop and tell the person.
 2. **State travels through files.** Every agent reads and writes files in the task directory. Give agents absolute paths. Never paste or paraphrase one agent's result into another agent's prompt: point to the file.
 3. **Agents run in the background.** After you launch or resume one, end your turn with one line saying what is running. Continue when its completion notification arrives. Never predict, summarise or act on a result you have not received.
-4. **Resume, do not respawn.** Record every agent ID in `state.md` as soon as you get it. To continue an agent's work (feedback, answers, the next phase, a fix round) use SendMessage with that ID, so it keeps its history. Launch a new instance only when a step says so or when the resume fails; then record the new ID and tell the new agent which files hold the earlier work.
+4. **One agent, one unit of work.** An agent reads its whole history again on every turn it takes, and after a wait of a few minutes that history is paid for in full once more. A long-lived agent therefore gets more expensive with every phase. Keep histories short:
+   - the planner is one instance, resumed through the rounds of the plan gate;
+   - the implementer and the reviewer are launched anew for every phase, and resumed only inside that phase (answers to their questions, the fix loop). Each QA fix round and each review bot round also gets new instances;
+   - `task-docs` and `task-qa` are one instance each, resumed for `sync` and `retest`.
+
+   Record every agent ID in `state.md` as soon as you get it, and resume with SendMessage and that ID. If a resume fails, launch a new instance, record it, and point it to the files that hold the earlier work.
 5. **Open questions belong to the person.** When an agent returns `status: open-questions`, ask the person with AskUserQuestion: at most four questions per call, the agent's options as choices, the agent's recommended option first and labelled as the agent's recommendation. Never answer such a question yourself, and never pick an approach on the person's behalf. Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers.
 6. **Nothing is built before the plan is approved.** Until the person writes `approve` at the plan gate there are no worktrees, no code edits and no commits.
 7. **Git.** Only you commit, only inside task worktrees, only after the plan is approved. Push and open pull requests only after `yes` at the PR gate. Never merge, never force-push, never rewrite history, never change a main checkout.
@@ -40,6 +45,7 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 10. **Language.** Files, prompts and artifacts are in English. Talk to the person in the language they use.
 11. **A stopped agent.** If an agent ends because it reached its turn limit, resume it with "Continue from where you stopped." If it returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent.
 12. **The epic analysis is not yours.** `.tasks/epic-<id>/readiness/` is written by `/epic-readiness`. Read it and give its paths to agents. Never write, move or delete anything inside it.
+13. **Keep your own context small.** You take dozens of turns in a run and each one reads this whole conversation again. Do not read plans, phase files, reports, reviews or source files in full. Take what you need from an agent's final message and from `state.md`, or fetch one section or one table with a targeted search. Keep the output of your commands short.
 
 ---
 
@@ -62,9 +68,13 @@ Check, in this order, and stop at the first failure that blocks the run:
 
 1. **Shortcut MCP.** The `mcp__shortcut__*` tools are available. If not, tell the person to run the setup script for this project, restart Claude Code, check `/mcp`, complete the OAuth login, and stop.
 2. **Not plan mode.** In plan mode every subagent is forced into plan mode too and the implementer cannot write. Ask the person to leave plan mode and run the command again.
-3. **Agents installed.** The five `task-*` agent types are available. If not, tell the person to run the setup script and restart Claude Code (a newly created `agents` directory is picked up only after a restart), and stop.
-4. **GitHub CLI.** Run `gh auth status`. If it fails, warn now that Steps 10 and 11 will be skipped and the pull requests will have to be opened by hand, then continue.
-5. **Existing run.** A run of this command exists only when `<task dir>/state.md` exists. A task directory that holds nothing but `readiness/` is an epic analysis, not a run: go on to Step 2. When `state.md` exists, read it and ask with AskUserQuestion whether to continue from the recorded stage or start over. On continue, jump to that stage; agent IDs from an earlier session may no longer resume, which rule 4 covers. On start over, delete only this command's own files (`state.md`, `01-context.md` to `07-pr.md`, `qa/`), keep `attachments/`, and leave `readiness/` untouched.
+3. **A fresh session.** This command has to start in a session with little history, because of rule 13. If this conversation already holds substantial earlier work (a run of another command such as `/epic-readiness`, a long analysis, many files read), stop: ask the person to start a new session, or to run `/clear`, and start the command again. Nothing is lost, since everything this command needs is in files. The same applies when a long run is continued: a new session and "continue" is cheaper than going on in the old one.
+4. **Agents installed.** The five `task-*` agent types are available. If not, tell the person to run the setup script and restart Claude Code (a newly created `agents` directory is picked up only after a restart), and stop.
+5. **GitHub CLI.** Run `gh auth status`. If it fails, warn now that Steps 10 and 11 will be skipped and the pull requests will have to be opened by hand, then continue.
+6. **Existing run.** A run of this command exists only when `<task dir>/state.md` exists. A task directory that holds nothing but `readiness/` is an epic analysis, not a run: go on to Step 2. When `state.md` exists, read it and ask with AskUserQuestion whether to continue from the recorded stage or start over.
+   - On continue, jump to that stage. Agents of an earlier session are not resumed: launch new ones as rule 4 describes.
+   - A run started with an older version of this command has one `03-implementation.md` and one `04-review.md` and no `02-plan/` directory. Leave those files as they are. New phases write the per-phase files described below, and agents are told to read only their phase's section of `02-plan.md`.
+   - On start over, delete only this command's own files (`state.md`, `01-context.md`, `02-plan.md`, `02-plan/`, `03-implementation/`, `04-review/`, `05-docs.md`, `06-qa.md`, `07-pr.md`, `qa/`, and the single-file reports of an older run), keep `attachments/`, and leave `readiness/` untouched.
 
 ## Step 2. Collect the context
 
@@ -180,7 +190,8 @@ Launch `task-planner`:
 ```text
 Task key: <key>
 Context file: <task dir>/01-context.md
-Plan file to write: <task dir>/02-plan.md
+Plan overview to write: <task dir>/02-plan.md
+Phase files to write: <task dir>/02-plan/phase-<n>.md
 Epic analysis: <readiness directory, or "none">
 
 Research the repositories listed in the context file and write the plan.
@@ -189,23 +200,23 @@ Research the repositories listed in the context file and write the plan.
 Record the agent ID. When it finishes:
 
 - `open-questions` → rule 5, then resume the same planner.
-- `done` → check that the plan file exists and contains `## Repositories and worktrees`, `## Phases` and `## Tests`, then go to the gate.
+- `done` → check that the overview exists and contains `## Repositories and worktrees`, `## Phases` and `## Tests`, and that `02-plan/` holds one file for every phase in the overview's table. Then go to the gate.
 
 ## Step 4. Plan gate (mandatory)
 
 Show the person:
 
 - a summary of the plan in at most ten lines;
-- the absolute path of `02-plan.md`;
+- the absolute paths of `02-plan.md` (the overview) and of the `02-plan/` directory with one file per phase;
 - the repositories and worktrees table from the plan;
-- the list of phases;
+- the phase table from the overview;
 - when an epic analysis was used: its date and verdict, what is in scope now, what waits and for whom, and the base branches taken from it;
 - from the plan's `Tests` section: the coverage criterion and everything listed under `Not covered`, with the reasons;
 - this notice: writing `approve` also allows local commits in the task worktrees; nothing is pushed until the PR gate.
 
-Tell them they can answer `approve`, write feedback in free text, edit the plan file by hand and then answer `approve`, or answer `cancel`. Then stop and wait.
+Tell them they can answer `approve`, write feedback in free text, edit the plan files by hand and then answer `approve`, or answer `cancel`. Then stop and wait.
 
-- **`approve`** (also `approved`) → read the plan file again from disk, because it may have been edited by hand. Record the revision and approval time in `state.md`. Continue to Step 5.
+- **`approve`** (also `approved`) → the plan files may have been edited by hand, so take the repositories table and the phase table again from disk. Record the revision and approval time in `state.md`. Continue to Step 5.
 - **A bare "ok", "yes", "так" or similar** → this gate needs the exact word. Ask the person to write `approve`.
 - **`cancel`** → record the stage as cancelled and stop.
 - **Anything else** is feedback. Resume the same planner with SendMessage:
@@ -214,10 +225,10 @@ Tell them they can answer `approve`, write feedback in free text, edit the plan 
   Reviewer feedback on the plan, verbatim:
   <the person's message>
 
-  Read the plan file from disk first (it may have been edited by hand), update it in place, bump the revision and add a revision log entry.
+  Read the plan files from disk first (they may have been edited by hand), update the ones the feedback touches in place, bump the revision and add a revision log entry.
   ```
 
-  If the resume fails, launch a new `task-planner` with the context path, the existing plan path and the feedback. When it finishes, return to the start of this step.
+  If the resume fails, launch a new `task-planner` with the context path, the existing plan paths and the feedback. When it finishes, return to the start of this step.
 
 Repeat until `approve`. There is no limit on the number of rounds.
 
@@ -243,42 +254,46 @@ The phases come from the approved plan. Normally a story is one phase and an epi
 
 **a. In Development (epic run).** Move this phase's story to In Development, with the same rules as in Step 2.
 
-**b. Implement.** For the first phase launch `task-implementer`; for later phases resume the same agent.
+**b. Implement.** Launch a new `task-implementer` for this phase (rule 4).
 
 ```text
 Task key: <key>
 Phase to implement: <n> <title>
 Context file: <task dir>/01-context.md
-Approved plan: <task dir>/02-plan.md
-Implementation report to write: <task dir>/03-implementation.md
+Plan overview: <task dir>/02-plan.md
+Phase file: <task dir>/02-plan/phase-<n>.md
+Report to write: <task dir>/03-implementation/phase-<n>.md
+Reports of earlier phases: <task dir>/03-implementation/ (read only the parts your phase builds on)
+Non-blocking findings to settle first: <task dir>/04-review/phase-<n-1>.md, or "none"
 Worktrees you may edit:
 - <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
 Test users: <settings file path>, key test_users
 ```
 
-**c. Review.** For the first review launch `task-reviewer`; afterwards resume the same agent.
+**c. Review.** Launch a new `task-reviewer` for this phase.
 
 ```text
 Mode: phase-review, phase <n>, round 1
 Context file: <task dir>/01-context.md
-Approved plan: <task dir>/02-plan.md
-Implementation report: <task dir>/03-implementation.md
-Review file to write: <task dir>/04-review.md
-Worktrees with the changes (uncommitted since the last phase commit):
+Plan overview: <task dir>/02-plan.md
+Phase file: <task dir>/02-plan/phase-<n>.md
+Implementation report: <task dir>/03-implementation/phase-<n>.md
+Review file to write: <task dir>/04-review/phase-<n>.md
+Worktrees with the changes (this phase is everything not yet committed; earlier phases are committed):
 - <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
 ```
 
 **d. Fix loop.** On `CHANGES REQUESTED`:
 
-1. Resume the implementer: "Fix the blocking findings of phase `<n>`, round `<r>` in `<task dir>/04-review.md` and record the fix round in your report."
-2. Resume the reviewer in `fix-verification` mode for the next round.
+1. Resume this phase's implementer: "Fix the blocking findings of round `<r>` in `<task dir>/04-review/phase-<n>.md` and record the fix round in your report."
+2. Resume this phase's reviewer in `fix-verification` mode for the next round.
 3. If the implementer declined a finding and the reviewer kept it, put both positions to the person with AskUserQuestion.
 4. After two fix rounds that still end in `CHANGES REQUESTED`, ask the person with AskUserQuestion: run another round, accept the phase as it is (the remaining findings go into the open items of the summary), or stop.
 
 **e. Commit.** On `APPROVED`, commit the phase in every worktree it changed:
 
-1. Stage exactly the files listed for this phase in the `Changes` table of the implementation report: `git -C <worktree> add -- <paths>`.
-2. Run `git -C <worktree> status --short`. If other changes remain, do not stage them blindly: resume the implementer to account for them. Never stage `.env` files, credentials or anything from the task directory.
+1. Stage exactly the files listed in the `Changes` table of this phase's report: `git -C <worktree> add -- <paths>`. Take the table with a targeted read, not the whole report.
+2. Run `git -C <worktree> status --short`. If other changes remain, do not stage them blindly: resume this phase's implementer to account for them. Never stage `.env` files, credentials or anything from the task directory.
 3. Commit with the message format of `commit.md`: `<task number>: <description>`, imperative, in English, at most 200 characters, no trailing period, no trailer lines. The task number is the story ID; for an epic it is the ID of the story this phase implements.
 4. Record the commit hash in `state.md`.
 
@@ -304,9 +319,9 @@ Launch `task-docs`:
 Mode: write
 Task key: <key>
 Context file: <task dir>/01-context.md
-Approved plan: <task dir>/02-plan.md
-Implementation report: <task dir>/03-implementation.md
-Review: <task dir>/04-review.md
+Plan overview: <task dir>/02-plan.md
+Implementation reports, one per phase: <task dir>/03-implementation/
+Reviews, one per phase: <task dir>/04-review/
 Documentation worktree: <worktree directory>
 Code worktrees (read only):
 - <repo>: <worktree directory>
@@ -327,8 +342,8 @@ Launch `task-qa`:
 Mode: full
 Task key: <key>
 Context file: <task dir>/01-context.md
-Approved plan: <task dir>/02-plan.md
-Implementation report: <task dir>/03-implementation.md
+Plan overview: <task dir>/02-plan.md
+Implementation reports, one per phase: <task dir>/03-implementation/
 Documentation report: <task dir>/05-docs.md
 Documentation worktree: <worktree directory>
 Application URL: <url>
@@ -339,8 +354,8 @@ Screenshots directory: <task dir>/qa/
 
 If the verdict is `PASS`, continue to Step 10. If there are findings, run a fix round:
 
-1. **`BUG` findings.** Resume the implementer: "Fix the `BUG` findings of round `<r>` in `<task dir>/06-qa.md` and record the fix round in your report." Then resume the reviewer in `fix-verification` mode on those fixes, with the usual fix loop from Step 6d. Commit the approved fixes as in Step 6e.
-2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, resume `task-docs` in `sync` mode, pointing it to `06-qa.md` and the fix round in the implementation report. Commit its changes.
+1. **`BUG` findings.** Launch a new `task-implementer`: "Fix the `BUG` findings of round `<r>` in `<task dir>/06-qa.md`. Report to write: `<task dir>/03-implementation/qa-round-<r>.md`." Give it the context file, the plan overview and the worktrees as in Step 6b. Then launch a new `task-reviewer` in `fix-verification` mode on those fixes, writing `<task dir>/04-review/qa-round-<r>.md`, with the usual fix loop from Step 6d. Commit the approved fixes as in Step 6e.
+2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, resume `task-docs` in `sync` mode, pointing it to `06-qa.md` and the report of the fix round. Commit its changes.
 3. **Retest.** Resume the same `task-qa` in `retest` mode with the failed items and the items next to the changed code.
 
 After two fix rounds that still end in `FAIL`, ask the person with AskUserQuestion: run another round, accept with the remaining findings as open items, or stop. `BLOCKED` items do not start a fix round; they are reported at the PR gate.
@@ -386,11 +401,13 @@ The repositories use an automated reviewer (CodeRabbit). Handle each pull reques
 
 **Collect.** Fetch the unresolved review threads (GraphQL `reviewThreads` with `isResolved`, path, line and comment bodies) and the actionable remarks in the review body. Write them verbatim into `07-pr.md` under `## Round <n>`, each with an ID `C<n>.<k>`, the pull request, the file and the line. If there is nothing actionable, this pull request is done.
 
-**Triage.** Resume the reviewer:
+**Triage.** Launch a new `task-reviewer` for the round:
 
 ```text
 Mode: pr-triage, round <n>
 Bot comments to triage: <task dir>/07-pr.md, section "Round <n>"
+Context file: <task dir>/01-context.md
+Plan overview: <task dir>/02-plan.md
 Worktrees:
 - <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
 ```
@@ -398,7 +415,7 @@ Worktrees:
 **Act on the triage.**
 
 1. `ask-user` items → AskUserQuestion; the answer turns each into `fix` or `reply`.
-2. `fix` items → resume the implementer: "Fix the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md` and record the fix round in your report." Then resume the reviewer in `fix-verification` mode.
+2. `fix` items → launch a new `task-implementer`: "Fix the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md`. Report to write: `<task dir>/03-implementation/pr-round-<n>.md`." Then resume this round's reviewer in `fix-verification` mode, writing `<task dir>/04-review/pr-round-<n>.md`.
 3. If a fix changed behaviour, rerun the affected cases with `task-qa` in `retest` mode and update the documentation with `task-docs` in `sync` mode.
 4. Make **one** commit per repository for the whole round and push once. Every push starts another bot review and uses its quota, so never push fixes one at a time.
 5. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`). Leave declined threads open for the bot or the person to close. Answer remarks from the review body in one pull request comment that mentions `@coderabbitai`.
@@ -446,7 +463,8 @@ Update it after every stage change, every agent launch and every commit.
 - Application: <URL> (started by the orchestrator: yes | no) | not available
 
 ## Agents
-| Role | Agent ID | Last used for |
+<one row per instance; the implementer and the reviewer get a new row for every phase and round>
+| Role | Agent ID | Used for |
 
 ## Repositories
 | Repository | Main checkout | Base | Worktree | Branch | Pull request |
