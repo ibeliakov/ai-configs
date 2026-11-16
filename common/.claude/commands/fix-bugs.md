@@ -36,7 +36,8 @@ A bug is small, so this command is built to read little: the epic is not read in
    - A `task-bugfixer` lives for one bug: it is resumed for the approval, for answers to its questions and for findings on its fix.
    - A `task-reviewer` lives for one bug, or for one review bot round.
    - `task-docs` and `task-qa` are never resumed for a new round: a `sync` or a `retest` is a new instance that reads the earlier report.
-   - An agent that returns `status: partial`, or stops at its turn limit, is not resumed either: launch a new instance of the same type with the same paths and the line "Continue from the report: `<path>`".
+   - An agent that returns `status: partial` has handed its work over: launch a new instance of the same type with the same paths and the line "Continue from the report: `<path>`". It is not resumed.
+   - An agent that stops at its turn limit has not written its report yet. Resume it once with: "Do not continue the work. Write your report now with `Status: partial` and what remains, then stop." Then launch a new instance as above. A `task-reviewer` has no hand-over: resume it with "Continue from where you stopped."
 
    Record every agent ID in `state.md`. If a resume fails, launch a new instance and point it to the files with the earlier work.
 5. **Open questions belong to the person.** When an agent returns `status: open-questions`, ask with AskUserQuestion: at most four questions per call, the agent's recommended option first and labelled as the agent's recommendation. Never answer one yourself. Append question and answer to `01-context.md` under `## Clarifications`, then resume the same agent.
@@ -113,7 +114,7 @@ Take `.files[]` with a filter, download each with the same header into `attachme
 **Repositories and the application.** Decide from the project map and the bugs' layers which repositories will change: the frontend projects of the chosen bugs, and the documentation repository. Run `git -C <repo> fetch origin --prune` for each. Then ask everything the rest of the run needs in one AskUserQuestion call, so that nothing stops the run between the diagnosis gate and the PR gate:
 
 - the base branch of every repository, offering the integration branches found in `git -C <repo> branch -r`;
-- how each changed application will be available for the retest: you start it from the worktree, it is already running (the person gives the URL), or there is no application (the retest is skipped and the documentation gets no new screenshots; both facts go into the summary).
+- how each changed application will be available for the retest: you start it from the worktree; the person runs it from the worktree (name the directory, `<main checkout>-<epic id>-bugs`, and ask for the URL); or there is no application (the retest is skipped and the documentation gets no new screenshots; both facts go into the summary). A server started from another checkout, and a staging deployment, do not contain the fixes and cannot be used for the retest: say so when the person offers one.
 
 The rules path of a repository is its main checkout: `<repo>/CLAUDE.md` and `<repo>/.claude/rules/`.
 
@@ -161,7 +162,10 @@ Record the agent IDs. As each one finishes:
 - `open-questions` → rule 5, then resume that agent.
 - `not-fixable-here` → mark the bug in `state.md` with the reason from the final message; it gets no fix.
 - `done` → keep the final message for the gate.
-- Two agents name the same root cause → treat the two bugs as one fix: the first agent fixes it, the second bug is recorded as covered by the first, and its bug file stays as the source of its retest steps.
+- Two agents name the same root cause → treat the two bugs as one fix: the first agent fixes it and the second bug is recorded in `state.md` as covered by the first. The covered bug gets no `Implementation` section and no commit of its own; its bug file stays as the source of its documentation impact and its retest steps, and every later prompt that lists bug files names it as "sc-`<id>`: covered by sc-`<first id>`".
+- `not-fixable-here` with the reason "other repository: `<name>`" → the first guess of the layer was wrong. Create that repository's worktree as in Step 4, asking for its base branch, and launch a new `task-bugfixer` for the bug there. When the cause spans two repositories, launch it with both worktrees.
+
+Before the gate, run `git -C <worktree> status --short` in every worktree. The diagnosis is read-only (rule 6), and the worktree is shared by the agents of several bugs. If anything changed, do not discard it yourself: resume the agents that worked in that worktree with "Revert the edits you made during the diagnosis", and check again.
 
 ## Step 6. Diagnosis gate (mandatory)
 
@@ -187,9 +191,9 @@ Wait for the dependency installs of Step 4. Bugs in different repositories are w
 
 For each bug:
 
-**a. In Development.** Move the bug story to In Development: find the state with that name in the story's own workflow and call `update_story`. Do not move a story that is already in that state or a later one, and never move one backwards. If the write is refused, say so and continue.
+**a. In Development.** Move the bug story, and every story this fix covers, to In Development: find the state with that name in the story's own workflow and call `update_story`. Do not move a story that is already in that state or a later one, and never move one backwards. If the write is refused, say so and continue.
 
-**b. Fix.** Resume the bug's `task-bugfixer`: "Stage: fix. The diagnosis is approved." Add the person's remarks on this bug, verbatim, when there were any, and "Your fix also covers sc-`<other id>`" when two bugs were merged in Step 5. If the resume fails, launch a new `task-bugfixer` with the prompt of Step 5 and `Stage: fix`.
+**b. Fix.** Resume the bug's `task-bugfixer`: "Stage: fix. The diagnosis is approved." Add what applies: the person's remarks on this bug, verbatim; "Your fix also covers sc-`<other id>`" when two bugs were merged in Step 5; and, when other fixes were committed in this worktree after the diagnosis, "Committed here since your diagnosis: `<commit subjects>`; files changed: `<paths>`" (from `git -C <worktree> log --name-only --format=%s origin/<base>..HEAD`), because the diagnosis was made against the base branch. If the resume fails, launch a new `task-bugfixer` with the prompt of Step 5 and `Stage: fix`.
 
 **c. Review.** Launch a new `task-reviewer`:
 
@@ -216,7 +220,7 @@ Worktree with the changes (this bug is everything not yet committed):
 Skip this step when the person chose "no application" in Step 3.
 
 - **Started by you.** Read the project's `CLAUDE.md` for the development command and start it from the worktree in the background, on the port the project documents. If that port is taken, ask the person instead of choosing another one: a staging API may refuse requests from an unlisted port. You stop the server again in Step 12.
-- **Already running.** Use the URL the person gave. It must be a local or staging address; if you cannot tell, ask.
+- **Run by the person.** Use the URL the person gave. It must be a local address of a server started from the task worktree. Check it without asking: the working directory of the process listening on that port (`lsof -a -d cwd -p $(lsof -ti tcp:<port> | head -1)`) has to be the worktree. If it is not, or you cannot tell, show the worktree path and ask the person to start the server from it.
 
 Check that each URL answers (`curl`, status code only) and write the final addresses into the `Environment` section of the context file. An environment that does not work is cheaper to find here than inside the retest.
 
@@ -231,6 +235,7 @@ Mode: bugfix
 Task key: epic-<id> bugfix-<n>
 Context file: <run dir>/01-context.md
 Bug files of the fixed bugs: <run dir>/bugs/sc-<id>.md, …
+Covered bugs: sc-<id>: covered by sc-<first id>, or "none"
 Documentation worktree: <worktree directory>
 Code worktrees (read only):
 - <repo>: <worktree directory>
@@ -239,7 +244,7 @@ Application URL (only for retaking a screenshot the fix made wrong): <url, or "n
 Test users: <settings file path>, key test_users
 ```
 
-When it finishes, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md`, with the epic ID as the task number.
+When it finishes, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md`, with the epic ID as the task number. Then run `git -C <worktree> status --short`: a change that is left over is checked against the `Documents` tables of every round with a targeted search and staged when it is listed there; anything still unexplained is shown to the person, not committed.
 
 **b. Retest.** Skip it, and say so in the summary, when there is no application. Launch `task-qa`:
 
@@ -248,6 +253,7 @@ Mode: bugfix
 Task key: epic-<id> bugfix-<n>
 Context file: <run dir>/01-context.md (its Environment section is current)
 Bug files of the fixed bugs: <run dir>/bugs/sc-<id>.md, …
+Covered bugs: sc-<id>: covered by sc-<first id>, or "none"
 Documentation report: <run dir>/05-docs.md, or "none" (its Bugs table lists the cases to rerun for each bug)
 Documentation worktree: <worktree directory>
 Test users: <settings file path>, key test_users
@@ -260,7 +266,7 @@ Screenshots directory: <run dir>/qa/
 Take the findings from the final message of `task-qa`. If the verdict is `PASS`, continue to Step 11.
 
 1. **`BUG` findings** (the fix is wrong or broke something next to it). Resume the `task-bugfixer` of that bug: "Fix finding `<ID>` in `<run dir>/06-qa.md`." Then a new `task-reviewer` in `fix-verification` mode, appending to the bug's review file, with the fix loop of Step 7d. Commit as in Step 7e.
-2. **`DOC` findings** (a test case or a statement of the feature document is wrong). For these, and when a fix of point 1 changed documented behaviour, launch a new `task-docs` with `Mode: sync`, `effort: high`, the paths of `05-docs.md` and `06-qa.md` and the finding IDs. Commit its changes.
+2. **`DOC` findings** (a test case or a statement of the feature document is wrong). For these, and when a fix of point 1 changed documented behaviour, launch a new `task-docs` with `Mode: sync`, `effort: high`, the paths of Step 9a, the path of `06-qa.md` and the finding IDs. Commit its changes.
 3. **`OUT` findings** (a defect that existed before the fix, or a cause in the backend). They do not start a fix round. Record them as open items and show them at the PR gate; the person decides whether each becomes a new story.
 4. **Retest.** After points 1 and 2, launch a new `task-qa` with `Mode: retest`, `effort: high`, the same paths, and the items to rerun: the ones that failed, the cases the documentation writer just corrected, and the cases of a bug whose fix changed.
 
@@ -294,8 +300,8 @@ Ask: `yes / no / edit`.
 1. **Wait.** Start a background shell loop that checks the pull request once a minute for up to 15 minutes (`gh pr view <number> --json reviews,comments`) and exits when the bot has submitted a review newer than your last push, or has commented that it found nothing or hit a rate limit. Do not poll from the conversation. No bot activity: post one comment `@coderabbitai review` and wait once more; still nothing: note it and move on. A rate limit notice: tell the person and wait for their decision.
 2. **Collect.** Fetch the unresolved review threads (GraphQL `reviewThreads` with `isResolved`, path, line, bodies) and the actionable remarks of the review body. Write them verbatim into `07-pr.md` under `## Round <n>`, each with an ID `C<n>.<k>`. Nothing actionable: this pull request is done.
 3. **Triage.** Launch a new `task-reviewer` with `Mode: pr-triage, round <n>`, the path of `07-pr.md`, the context file, the `bugs/` directory and the worktrees.
-4. **Act.** `ask-user` items go to the person. For `fix` items resume the `task-bugfixer` of the bug whose commit the comment is about ("Fix the comments marked `fix` for your bug in the triage of round `<n>` in `<run dir>/07-pr.md`"), or launch a new one with `Stage: fix` and that line when the resume fails. Then resume this round's reviewer in `fix-verification` mode. If a fix changed behaviour, rerun the affected items with a new `task-qa` in `retest` mode and update the documentation with a new `task-docs` in `sync` mode.
-5. **Push once.** One commit per repository for the whole round, one push. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`); leave declined ones open. Answer remarks of the review body in one comment that mentions `@coderabbitai`. Record everything in `07-pr.md`, then wait for the next pass.
+4. **Act.** `ask-user` items go to the person. `fix` items in a code repository are handled bug by bug, one after another as in Step 7: resume the `task-bugfixer` of the bug whose commit the comment is about ("Fix the comments marked `fix` for your bug in the triage of round `<n>` in `<run dir>/07-pr.md`", with the commits made since its last turn, as in Step 7b), or launch a new one with `Stage: fix` and that line when the resume fails; then resume this round's reviewer in `fix-verification` mode, appending the round to `<run dir>/bugs/sc-<id>.review.md`; then commit that bug's changes as in Step 7e, without pushing. `fix` items in the documentation pull request go to a new `task-docs` with `Mode: sync`, `effort: high`, the paths of Step 9a and the triage section. If a code fix changed behaviour, rerun the affected items with a new `task-qa` in `retest` mode and update the documentation the same way.
+5. **Push once.** One commit per bug, and one push per repository for the whole round: every push starts another bot review and uses its quota. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`); leave declined ones open. Answer remarks of the review body in one comment that mentions `@coderabbitai`. Record everything in `07-pr.md`, then wait for the next pass.
 
 After three rounds on one pull request, ask the person whether to continue, stop with the remaining comments as open items, or handle them personally.
 

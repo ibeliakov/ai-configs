@@ -35,7 +35,8 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
    - the planner is one instance, resumed through the rounds of the plan gate;
    - the implementer and the reviewer are launched anew for every phase, and resumed only inside that phase (answers to their questions, the fix loop). Each QA fix round and each review bot round also gets new instances;
    - `task-docs` and `task-qa` are resumed only for answers to their questions. A `sync` or a `retest` is a new instance that reads the earlier report: by then the first instance carries its whole first pass, and every turn of a resume would pay for it again;
-   - an agent that returns `status: partial` has handed its work over on purpose: launch a new instance of the same type with the same prompt and the added line "Continue from the report: `<path>`". Do the same with an agent that stopped at its turn limit. Neither is resumed.
+   - an agent that returns `status: partial` has handed its work over on purpose: launch a new instance of the same type with the same prompt and the added line "Continue from the report: `<path>`". It is not resumed;
+   - an agent that stopped at its turn limit has not written its report yet. Resume it once with: "Do not continue the work. Write your report now with `Status: partial` and what remains, then stop." Then launch a new instance as above. The planner and the reviewer have no hand-over: resume them with "Continue from where you stopped."
 
    Record every agent ID in `state.md` as soon as you get it, and resume with SendMessage and that ID. If a resume fails, launch a new instance, record it, and point it to the files that hold the earlier work.
 5. **Open questions belong to the person.** When an agent returns `status: open-questions`, ask the person with AskUserQuestion: at most four questions per call, the agent's options as choices, the agent's recommended option first and labelled as the agent's recommendation. Never answer such a question yourself, and never pick an approach on the person's behalf. Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers.
@@ -180,7 +181,7 @@ The epic is reference material. The scope of the run stays the story you were gi
 2. Decide which repositories the task changes (frontend projects, and the documentation repository when the workspace has one) and which are read-only references (backend).
 3. For every repository that will change, run `git -C <repo> fetch origin --prune` and ask the person for the base branch with AskUserQuestion, offering the integration branches found in `git -C <repo> branch -r` (for example `stage`, `beta-stage`, a current sprint branch, `main`). Ask for all repositories in one call. Skip the question for a repository whose branch the person already chose during the epic analysis (2b).
 
-   In the same call ask how each application the task changes will be available for documentation and QA, so that nothing stops the run between the plan gate and the PR gate: you start it from the worktree, it is already running (the person gives the URL), or there is no application (documentation is written without screenshots and QA is skipped; both facts go into the summary).
+   In the same call ask how each application the task changes will be available for documentation and QA, so that nothing stops the run between the plan gate and the PR gate: you start it from the worktree; the person runs it from the worktree (name the directory, `<main checkout>-<id>`, and ask for the URL); or there is no application (documentation is written without screenshots and QA is skipped; both facts go into the summary).
 4. Find the code read path for the planner: a checkout of that repository whose `HEAD` equals `origin/<base>` (check the main checkout and `git -C <repo> worktree list --porcelain`). If there is none, the read path is the ref `origin/<base>` itself.
 5. The rules path is the main checkout: `<repo>/CLAUDE.md` and `<repo>/.claude/rules/`.
 
@@ -272,7 +273,6 @@ Reports of earlier phases: <task dir>/03-implementation/ (read only the parts yo
 Non-blocking findings to settle first: the `Non-blocking` section of <task dir>/04-review/phase-<n-1>.md, or "none"
 Worktrees you may edit:
 - <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
-Test users: <settings file path>, key test_users
 ```
 
 The implementer does not get the application URL: it verifies with the type check, the linter and the tests, and the running application is checked in Step 9. If it returns `status: partial`, the phase is not finished: launch a new `task-implementer` with the same prompt and "Continue from the report" (rule 4), and review only when one of them returns `done`.
@@ -309,7 +309,7 @@ Worktrees with the changes (this phase is everything not yet committed; earlier 
 The person chose in Step 2 how each changed application will be available. If that answer is missing (a run continued from an older version), ask now with AskUserQuestion.
 
 - **Started by you.** Read the project's `CLAUDE.md` for the development command and start it from the worktree in the background, on the port the project documents. If that port is taken, ask the person instead of choosing another one: a staging API may refuse requests from an unlisted port. You stop the server again in Step 12.
-- **Already running.** Use the URL the person gave.
+- **Run by the person.** Use the URL the person gave. It must be a local address of a server started from the task worktree: a server from another checkout, and a staging deployment, do not contain the change. Check it without asking: the working directory of the process listening on that port (`lsof -a -d cwd -p $(lsof -ti tcp:<port> | head -1)`) has to be the worktree. If it is not, or you cannot tell, show the worktree path and ask the person to start the server from it.
 - **No application.** Documentation is written without screenshots and QA is skipped; both facts go into the summary.
 
 The URL must be a local or staging address. If you cannot tell whether an address is production, ask. Check that each URL answers (`curl`, status code only) and write the final addresses into the `Environment` section of the context file: an environment that does not work is cheaper to find here than inside QA.
@@ -337,7 +337,7 @@ Application URL: <url, or "not available">
 Test users: <settings file path>, key test_users
 ```
 
-When it finishes, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md`, with the same message format. The task number is the story ID, or the epic ID for an epic.
+When it finishes, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md`, with the same message format. The task number is the story ID, or the epic ID for an epic. Then run `git -C <worktree> status --short`: a change that is left over is checked against the `Documents` tables of every round with a targeted search and staged when it is listed there; anything still unexplained is shown to the person, not committed.
 
 ## Step 9. QA
 

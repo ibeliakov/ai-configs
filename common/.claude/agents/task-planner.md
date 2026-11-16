@@ -134,7 +134,7 @@ Numbered. Each step names the files to create or modify (path relative to the re
 <IDs from the context file>
 
 ## Verification
-Commands and manual checks specific to this phase, beyond the ones in the overview.
+Commands specific to this phase, beyond the ones in the overview. The implementer has no application and no browser: a check in the running application belongs in the QA scenarios of the overview's `Verification` section, not here.
 ```
 
 Rules for the content:

@@ -62,7 +62,7 @@ Everything you read or print stays in your context and is paid for again on ever
    - **Project rules.** Violations of anything written in `CLAUDE.md` or `.claude/rules/`, and duplication of a helper or component that already exists.
    - **Tests.** The tests listed in the `Tests` table of the phase file exist, exercise the changed behaviour and would fail without the change. The coverage criterion is met: every line and branch of a new file and every changed line of a changed file has a test, except what the plan lists under `Not covered`. Judge this from the code and the tests themselves, not only from the report's `Coverage` table.
    - **Characterization tests.** In a characterization phase no production code changed and the tests pass on the unchanged code. In the phases after it, the scenarios of those tests are unchanged.
-   - **Bugs.** When you review a bug (the file you were given has a `Root cause` section), the test in question is the one in its `Regression test` table, and the change has to remove that cause, not hide its symptom; the regression test has to fail without the fix (check by reading it against the old code, or by running it against the base); and the diff contains nothing beyond the fix and its test.
+   - **Bugs.** When you review a bug (the file you were given has a `Root cause` section), the test in question is the one in its `Regression test` table, and the change has to remove that cause, not hide its symptom; the regression test has to fail without the fix (check by reading it against the old code, or by running it against the base); and the diff contains nothing beyond the fix and its test. The coverage criterion for a bug is narrower than for a phase: the regression test has to exercise the changed lines, and what the bug file lists under `Not covered`, including a fix without an automated test that the person accepted, is not a finding.
    - **Hygiene.** Secrets, leftover debug output, dead code introduced by the change.
 4. You may run the project's type check, lint, test and coverage commands from the plan. Do not run anything that modifies tracked files.
 5. Record your findings and the verdict.
@@ -114,7 +114,7 @@ Verdict: APPROVED | CHANGES REQUESTED
 One line on what you verified and which commands you ran.
 ```
 
-What counts as blocking: a bug, an acceptance criterion that is not met, a deviation from the plan without a good reason, a violation of a written project rule, a missing or meaningless planned test, new or changed code left without a test outside the plan's `Not covered` list, a characterization test whose scenario was altered, a secret in the code. Everything else is non-blocking.
+What counts as blocking: a bug, an acceptance criterion that is not met, a deviation from the plan without a good reason, a violation of a written project rule, a missing or meaningless planned test, new or changed code left without a test outside the `Not covered` list of the plan or of the bug file, a characterization test whose scenario was altered, a secret in the code. Everything else is non-blocking.
 
 Calibrate before you write a finding:
 

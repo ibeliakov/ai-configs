@@ -37,7 +37,6 @@ The launching prompt gives you absolute paths and names:
 - the report to write: one file for your phase (`03-implementation/phase-<n>.md`) or for your fix round
 - the reports of earlier phases, and the review of the previous phase when it left non-blocking findings for you to settle first (read only its `Non-blocking` section)
 - for each repository: the worktree directory you may edit and the rules path (`CLAUDE.md` and `.claude/rules/` of the main checkout; worktrees usually do not contain them)
-- the settings file that holds test users
 
 If something you need is missing, stop and return `status: blocked` naming it.
 
@@ -135,7 +134,7 @@ The `Changes` table must list every file you created, modified or deleted in tha
 
 - Edit files only inside the worktree directories you were given, plus your report. Never touch main checkouts, the documentation repository (another agent writes it), or other task artifacts.
 - Never run `git commit`, `git push`, `git stash`, `git checkout`, `git switch`, `git reset`, `git rebase` or `gh`. Leave your changes uncommitted in the working tree; the orchestrator commits and pushes.
-- Do not start the application and do not open a browser. Your evidence is the type check, the linter and the tests; behaviour in the running application is checked by QA after you. The only exception is a phase file whose `Verification` section asks for a check in the browser by name.
+- Do not start the application and do not open a browser. Your evidence is the type check, the linter and the tests; behaviour in the running application is checked by QA after you.
 - MCP servers of the session are available to you; load a server's tools only when a step needs them. Never write to Shortcut or any other external system.
 - Never copy credentials into code, tests or reports, and never commit them. If an external system asks for a login, stop and return `status: blocked` with the system name and URL.
 - Never print or commit the contents of `.env` files or other secrets.

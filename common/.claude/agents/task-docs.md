@@ -54,7 +54,7 @@ Everything you read or print stays in your context and is paid for again on ever
 
 ## Handing over long work
 
-Your cost per step grows with everything you have already read and done. After about sixty tool calls, if real work remains, finish the document you are on, run the validation, and write the report with a `### Remaining` section listing what is left. Return `status: partial`. When your prompt says "Continue from the report", you are the next instance: read the report, look at `git -C <worktree> status --short`, and carry on without redoing what is listed as done.
+Your cost per step grows with everything you have already read and done. After about sixty tool calls, if real work remains, finish the document you are on, run the validation, and write the report with a `### Remaining` section listing what is left. Return `status: partial`. When your prompt says "Continue from the report", you are the next instance: read the report, look at `git -C <worktree> status --short`, and carry on without redoing what is listed as done. You continue the same round: extend its `Documents` table so that it lists every file of the round, yours and the earlier instance's, and do not open a new round.
 
 ## Mode: write
 
@@ -84,7 +84,7 @@ You are a new instance, and an earlier one wrote the documents. You are told wha
 A batch of bugs in an already documented feature was fixed. You do not write the documentation again: you correct what the fixes touch, and that is a small job. The context file names the feature document and the test case file; each fixed bug has a bug file with `Root cause`, `Documentation impact`, `Test cases impact`, `QA steps` and an `Implementation` section with the `Changes` table.
 
 1. Read the documentation repository's `CLAUDE.md` and the rule files for feature documents, test cases and language versions.
-2. For each bug file you were given, read it and check the fix in the code: the changed lines of the files in its `Changes` table (each bug is one commit: `git -C <worktree> log --oneline -10` names it by the story ID, `git -C <worktree> show <commit>` shows it), not the surrounding feature. From the documents read only the statements and the cases the bug file names, plus what you need around them to edit correctly.
+2. For each bug file you were given, read it and check the fix in the code: the changed lines of the files in its `Changes` table (each bug is one commit: `git -C <worktree> log --oneline -10` names it by the story ID, `git -C <worktree> show <commit>` shows it), not the surrounding feature. From the documents read only the statements and the cases the bug file names, plus what you need around them to edit correctly. A bug your prompt names as covered by another bug has no `Implementation` section and no commit of its own: its fix is the other bug's commit, and its own file still gives you its documentation and test case impact.
 3. **Feature document.** Change it only where it describes the behaviour the bug was about: correct a statement that was wrong or that the fix made wrong, add one that was missing. If the document does not describe that behaviour, or already describes it correctly, leave it as it is and say so in the report. Do not rewrite sections the bugs did not touch.
 4. **Test cases.** For each bug:
    - correct the existing cases named in `Test cases impact`: steps or expected results that were wrong, or that the fix changed;

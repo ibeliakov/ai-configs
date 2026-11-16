@@ -243,7 +243,7 @@ How it behaves:
 - **Token use.** An agent reads its whole history again on every turn, so the cost of an agent grows roughly with the square of the number of steps it takes. The pipeline therefore keeps agents short-lived:
   - the implementer and the reviewer are new instances for every phase and read only the plan overview and their phase file; the reviewer works from the diff of the phase;
   - the planner sizes a phase to about sixty tool calls (usually 5 to 15 changed files), splits a larger story into several phases and may merge very small neighbouring stories;
-  - an agent that runs long hands over: it returns `partial` with a list of what remains, and a fresh instance continues from the report. An agent that reached its turn limit is replaced the same way, not resumed;
+  - an agent that runs long hands over: it returns `partial` with a list of what remains, and a fresh instance continues from the report. An agent that reached its turn limit is asked once to write down its state and is then replaced the same way;
   - a documentation `sync` and a QA `retest` are new instances that read the earlier report;
   - the implementer does not start the application or a browser; that is QA's job. QA gets its environment (URLs, which API each application talks to, known constraints, test data notes) from the context file and stops early with `blocked` when the environment does not work, instead of working around it;
   - agents read the project rules that apply to the code they touch, not every rule file;
