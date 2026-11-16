@@ -34,7 +34,8 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 4. **One agent, one unit of work.** An agent reads its whole history again on every turn it takes, and after a wait of a few minutes that history is paid for in full once more. A long-lived agent therefore gets more expensive with every phase. Keep histories short:
    - the planner is one instance, resumed through the rounds of the plan gate;
    - the implementer and the reviewer are launched anew for every phase, and resumed only inside that phase (answers to their questions, the fix loop). Each QA fix round and each review bot round also gets new instances;
-   - `task-docs` and `task-qa` are one instance each, resumed for `sync` and `retest`.
+   - `task-docs` and `task-qa` are resumed only for answers to their questions. A `sync` or a `retest` is a new instance that reads the earlier report: by then the first instance carries its whole first pass, and every turn of a resume would pay for it again;
+   - an agent that returns `status: partial` has handed its work over on purpose: launch a new instance of the same type with the same prompt and the added line "Continue from the report: `<path>`". Do the same with an agent that stopped at its turn limit. Neither is resumed.
 
    Record every agent ID in `state.md` as soon as you get it, and resume with SendMessage and that ID. If a resume fails, launch a new instance, record it, and point it to the files that hold the earlier work.
 5. **Open questions belong to the person.** When an agent returns `status: open-questions`, ask the person with AskUserQuestion: at most four questions per call, the agent's options as choices, the agent's recommended option first and labelled as the agent's recommendation. Never answer such a question yourself, and never pick an approach on the person's behalf. Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers.
@@ -43,9 +44,9 @@ You are the orchestrator and you run in the main session. You read Shortcut, tal
 8. **Shortcut.** Read freely through the Shortcut MCP tools and the REST API (GET only). Exactly two writes are allowed: moving a story to In Development (automatic, Steps 2 and 6) and one final comment after an explicit `yes` (Step 13). Nothing else, ever.
 9. **Credentials.** Local and staging applications are entered with the test users from local settings. External systems are entered by the person, never by you or an agent. Production is never entered or tested. Credential values never go into any file.
 10. **Language.** Files, prompts and artifacts are in English. Talk to the person in the language they use.
-11. **A stopped agent.** If an agent ends because it reached its turn limit, resume it with "Continue from where you stopped." If it returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent.
+11. **A blocked agent.** If an agent returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent. A blocked `task-qa` usually names an environment problem: fix the environment (Step 7), update `Environment` in the context file, and launch a new instance. An agent that reached its turn limit is handled as rule 4 says.
 12. **The epic analysis is not yours.** `.tasks/epic-<id>/readiness/` is written by `/epic-readiness`. Read it and give its paths to agents. Never write, move or delete anything inside it.
-13. **Keep your own context small.** You take dozens of turns in a run and each one reads this whole conversation again. Do not read plans, phase files, reports, reviews or source files in full. Take what you need from an agent's final message and from `state.md`, or fetch one section or one table with a targeted search. Keep the output of your commands short.
+13. **Keep your own context small.** You take dozens of turns in a run and each one reads this whole conversation again. Do not read plans, phase files, reports, reviews or source files in full. Take what you need from an agent's final message and from `state.md`, or fetch one section or one table with a targeted search. Keep the output of your commands short, and filter an API response before it reaches the conversation. Load the deferred tools you will need (the Shortcut tools, `SendMessage`, `TaskStop`) in one ToolSearch call at the start, not one by one.
 
 ---
 
@@ -178,8 +179,12 @@ The epic is reference material. The scope of the run stays the story you were gi
 1. Find the workspace project map: a `CLAUDE.md` in the session directory or its parent that lists the projects and their roles. If the session directory is itself a single project, that project is the target.
 2. Decide which repositories the task changes (frontend projects, and the documentation repository when the workspace has one) and which are read-only references (backend).
 3. For every repository that will change, run `git -C <repo> fetch origin --prune` and ask the person for the base branch with AskUserQuestion, offering the integration branches found in `git -C <repo> branch -r` (for example `stage`, `beta-stage`, a current sprint branch, `main`). Ask for all repositories in one call. Skip the question for a repository whose branch the person already chose during the epic analysis (2b).
+
+   In the same call ask how each application the task changes will be available for documentation and QA, so that nothing stops the run between the plan gate and the PR gate: you start it from the worktree, it is already running (the person gives the URL), or there is no application (documentation is written without screenshots and QA is skipped; both facts go into the summary).
 4. Find the code read path for the planner: a checkout of that repository whose `HEAD` equals `origin/<base>` (check the main checkout and `git -C <repo> worktree list --porcelain`). If there is none, the read path is the ref `origin/<base>` itself.
 5. The rules path is the main checkout: `<repo>/CLAUDE.md` and `<repo>/.claude/rules/`.
+
+**The environment.** QA is cheap only when the agent does not have to discover its environment. Write down what is already known, from the project map, the projects' `CLAUDE.md` files and your memory notes: for each application its URL and port, which API it talks to (local, staging) and known constraints such as a port the staging API accepts requests from; and the paths of notes or documents that describe test data for this feature, without copying credentials.
 
 **Write the files.** Create `01-context.md` and `state.md` from the templates at the end of this file.
 
@@ -200,7 +205,7 @@ Research the repositories listed in the context file and write the plan.
 Record the agent ID. When it finishes:
 
 - `open-questions` → rule 5, then resume the same planner.
-- `done` → check that the overview exists and contains `## Repositories and worktrees`, `## Phases` and `## Tests`, and that `02-plan/` holds one file for every phase in the overview's table. Then go to the gate.
+- `done` → check with targeted searches that the overview exists and contains `## Repositories and worktrees`, `## Phases` and `## Tests`, and that `02-plan/` holds one file for every phase in the overview's table. Then go to the gate.
 
 ## Step 4. Plan gate (mandatory)
 
@@ -250,9 +255,9 @@ Record the worktrees in `state.md`.
 
 ## Step 6. Implement and review, phase by phase
 
-The phases come from the approved plan. Normally a story is one phase and an epic has one phase per story; a refactoring or a library replacement starts with a separate phase of characterization tests, which is implemented, reviewed and committed like any other. For each phase, in the order of the plan:
+The phases come from the approved plan. Normally a story is one phase and an epic has one phase per story; the planner splits a large story into several phases and may put small neighbouring stories into one. A refactoring or a library replacement starts with a separate phase of characterization tests, which is implemented, reviewed and committed like any other. For each phase, in the order of the plan:
 
-**a. In Development (epic run).** Move this phase's story to In Development, with the same rules as in Step 2.
+**a. In Development (epic run).** Move every story of this phase to In Development, with the same rules as in Step 2.
 
 **b. Implement.** Launch a new `task-implementer` for this phase (rule 4).
 
@@ -264,11 +269,13 @@ Plan overview: <task dir>/02-plan.md
 Phase file: <task dir>/02-plan/phase-<n>.md
 Report to write: <task dir>/03-implementation/phase-<n>.md
 Reports of earlier phases: <task dir>/03-implementation/ (read only the parts your phase builds on)
-Non-blocking findings to settle first: <task dir>/04-review/phase-<n-1>.md, or "none"
+Non-blocking findings to settle first: the `Non-blocking` section of <task dir>/04-review/phase-<n-1>.md, or "none"
 Worktrees you may edit:
 - <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
 Test users: <settings file path>, key test_users
 ```
+
+The implementer does not get the application URL: it verifies with the type check, the linter and the tests, and the running application is checked in Step 9. If it returns `status: partial`, the phase is not finished: launch a new `task-implementer` with the same prompt and "Continue from the report" (rule 4), and review only when one of them returns `done`.
 
 **c. Review.** Launch a new `task-reviewer` for this phase.
 
@@ -294,18 +301,18 @@ Worktrees with the changes (this phase is everything not yet committed; earlier 
 
 1. Stage exactly the files listed in the `Changes` table of this phase's report: `git -C <worktree> add -- <paths>`. Take the table with a targeted read, not the whole report.
 2. Run `git -C <worktree> status --short`. If other changes remain, do not stage them blindly: resume this phase's implementer to account for them. Never stage `.env` files, credentials or anything from the task directory.
-3. Commit with the message format of `commit.md`: `<task number>: <description>`, imperative, in English, at most 200 characters, no trailing period, no trailer lines. The task number is the story ID; for an epic it is the ID of the story this phase implements.
+3. Commit with the message format of `commit.md`: `<task number>: <description>`, imperative, in English, at most 200 characters, no trailing period, no trailer lines. The task number is the story ID; for an epic it is the ID of the story this phase implements, and for a phase that covers several stories the first of them, with the others named in the description without the `sc-` prefix.
 4. Record the commit hash in `state.md`.
 
 ## Step 7. The application for documentation and QA
 
-Ask with AskUserQuestion how the application will be available, for each application the task changed:
+The person chose in Step 2 how each changed application will be available. If that answer is missing (a run continued from an older version), ask now with AskUserQuestion.
 
-- **Start it from the worktree.** Read the project's `CLAUDE.md` for the development command, start it from the worktree in the background on a free port, and wait until the URL responds. You stop it again in Step 12.
-- **It is already running.** The person gives the URL.
+- **Started by you.** Read the project's `CLAUDE.md` for the development command and start it from the worktree in the background, on the port the project documents. If that port is taken, ask the person instead of choosing another one: a staging API may refuse requests from an unlisted port. You stop the server again in Step 12.
+- **Already running.** Use the URL the person gave.
 - **No application.** Documentation is written without screenshots and QA is skipped; both facts go into the summary.
 
-The URL must be a local or staging address. If you cannot tell whether an address is production, ask.
+The URL must be a local or staging address. If you cannot tell whether an address is production, ask. Check that each URL answers (`curl`, status code only) and write the final addresses into the `Environment` section of the context file: an environment that does not work is cheaper to find here than inside QA.
 
 Test users come from the `test_users` key of `.claude/settings.local.json` in the session directory, or in the target project if the session directory has none. Do not ask the person for them. These environments hold test data only, so agents may create, change and delete whatever they need with these users. Give agents the path of the settings file, never the values. If no test users are configured, ask the person for credentials and keep them in the conversation only.
 
@@ -355,8 +362,10 @@ Screenshots directory: <task dir>/qa/
 If the verdict is `PASS`, continue to Step 10. If there are findings, run a fix round:
 
 1. **`BUG` findings.** Launch a new `task-implementer`: "Fix the `BUG` findings of round `<r>` in `<task dir>/06-qa.md`. Report to write: `<task dir>/03-implementation/qa-round-<r>.md`." Give it the context file, the plan overview and the worktrees as in Step 6b. Then launch a new `task-reviewer` in `fix-verification` mode on those fixes, writing `<task dir>/04-review/qa-round-<r>.md`, with the usual fix loop from Step 6d. Commit the approved fixes as in Step 6e.
-2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, resume `task-docs` in `sync` mode, pointing it to `06-qa.md` and the report of the fix round. Commit its changes.
-3. **Retest.** Resume the same `task-qa` in `retest` mode with the failed items and the items next to the changed code.
+2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, launch a new `task-docs` with `Mode: sync`, the paths of Step 8, and pointers to `06-qa.md` (the finding IDs) and the report of the fix round. Commit its changes.
+3. **Retest.** Launch a new `task-qa` with `Mode: retest`, the paths above, and the items to rerun: the failed ones and the ones next to the changed code.
+
+`OUT` findings (a defect that exists without this task's change, or a cause in the backend) do not start a fix round: record them as open items and show them at the PR gate. A `task-qa` that returns `status: partial` has items left: launch a new one with the same prompt and "Continue from the report" (rule 4).
 
 After two fix rounds that still end in `FAIL`, ask the person with AskUserQuestion: run another round, accept with the remaining findings as open items, or stop. `BLOCKED` items do not start a fix round; they are reported at the PR gate.
 
@@ -364,7 +373,7 @@ After two fix rounds that still end in `FAIL`, ask the person with AskUserQuesti
 
 Skip Steps 10 and 11 when `gh` is not available, and list the manual steps in the summary.
 
-Before the gate, state plainly anything that is not clean: a phase accepted with open review findings, QA skipped or accepted with findings, `BLOCKED` QA items, pending documentation.
+Before the gate, state plainly anything that is not clean: a phase accepted with open review findings, QA skipped or accepted with findings, `OUT` findings, `BLOCKED` QA items, pending documentation.
 
 For every worktree with commits, show:
 
@@ -416,7 +425,7 @@ Worktrees:
 
 1. `ask-user` items → AskUserQuestion; the answer turns each into `fix` or `reply`.
 2. `fix` items → launch a new `task-implementer`: "Fix the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md`. Report to write: `<task dir>/03-implementation/pr-round-<n>.md`." Then resume this round's reviewer in `fix-verification` mode, writing `<task dir>/04-review/pr-round-<n>.md`.
-3. If a fix changed behaviour, rerun the affected cases with `task-qa` in `retest` mode and update the documentation with `task-docs` in `sync` mode.
+3. If a fix changed behaviour, rerun the affected cases with a new `task-qa` in `retest` mode and update the documentation with a new `task-docs` in `sync` mode.
 4. Make **one** commit per repository for the whole round and push once. Every push starts another bot review and uses its quota, so never push fixes one at a time.
 5. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`). Leave declined threads open for the bot or the person to close. Answer remarks from the review body in one pull request comment that mentions `@coderabbitai`.
 6. Record the replies and the commit in `07-pr.md`, then wait for the bot's next pass.
@@ -551,7 +560,11 @@ Waiting: <area · what it waits for · who owes it>
 
 ## Environment
 - Test users: <settings file path>, key `test_users` (values are never copied here)
-- Known application URLs: <local and staging addresses from the project documentation>
+
+| Application | URL | API it talks to | Known constraints |
+
+- Test data notes: <paths of notes and documents that describe test data for this feature, or "None">
+- Read-only data access: <a script or connector for looking at staging data, or "None">
 
 ## Out of scope
 <what was excluded and why, for example backend stories of the epic>

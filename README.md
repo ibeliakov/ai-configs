@@ -214,7 +214,7 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 
 ## `/implement` pipeline
 
-`/implement <story or epic ID or URL> [extra instructions]` takes a Shortcut story or epic from requirements to an open pull request. The command (`common/.claude/commands/implement.md`) is the orchestrator and runs in the main session; the work is done by five subagents in `common/.claude/agents/`, each with its own context and a pinned model.
+`/implement <story or epic ID or URL> [extra instructions]` takes a Shortcut story or epic from requirements to an open pull request. The command (`common/.claude/commands/implement.md`) is the orchestrator and runs in the main session; the work is done by five subagents in `common/.claude/agents/` (`task-planner`, `task-implementer`, `task-reviewer`, `task-docs`, `task-qa`), each with its own context and a pinned model.
 
 | Stage | Who | Output |
 |---|---|---|
@@ -240,7 +240,16 @@ How it behaves:
 - **Open questions go to you.** When an agent sees two viable approaches or an ambiguity, it stops and the orchestrator asks you; it never decides on its own.
 - **QA findings** go back to the implementer, the fix is reviewed again, the documentation is updated when behaviour changed, and QA reruns the affected cases.
 - **Review bot comments** are triaged by the reviewer: fixed, or answered with a reason. Fixes are pushed once per round.
-- **Token use.** An agent reads its whole history again on every turn, so the pipeline keeps histories short. The implementer and the reviewer are new instances for every phase and read only the plan overview and their phase file; the reviewer works from the diff of the phase; the orchestrator does not read plans and reports in full. For the same reason `/implement` has to be started in a fresh session: in a session that already holds a long conversation (for example a `/epic-readiness` run) every orchestrator turn pays for that conversation again, and the command asks you to start a new one. A long run is also cheaper to continue in a new session: the state is in files.
+- **Token use.** An agent reads its whole history again on every turn, so the cost of an agent grows roughly with the square of the number of steps it takes. The pipeline therefore keeps agents short-lived:
+  - the implementer and the reviewer are new instances for every phase and read only the plan overview and their phase file; the reviewer works from the diff of the phase;
+  - the planner sizes a phase to about sixty tool calls (usually 5 to 15 changed files), splits a larger story into several phases and may merge very small neighbouring stories;
+  - an agent that runs long hands over: it returns `partial` with a list of what remains, and a fresh instance continues from the report. An agent that reached its turn limit is replaced the same way, not resumed;
+  - a documentation `sync` and a QA `retest` are new instances that read the earlier report;
+  - the implementer does not start the application or a browser; that is QA's job. QA gets its environment (URLs, which API each application talks to, known constraints, test data notes) from the context file and stops early with `blocked` when the environment does not work, instead of working around it;
+  - agents read the project rules that apply to the code they touch, not every rule file;
+  - the orchestrator does not read plans and reports in full, and asks about the application together with the base branches, so nothing stops the run between the plan gate and the PR gate.
+
+  For the same reason `/implement` has to be started in a fresh session: in a session that already holds a long conversation (for example a `/epic-readiness` run) every orchestrator turn pays for that conversation again, and the command asks you to start a new one. A long run is also cheaper to continue in a new session: the state is in files.
 
 What it writes outside your machine:
 
@@ -272,27 +281,31 @@ Requirements:
 
   These accounts must hold test data only: agents are allowed to create, change and delete data with them. Agents never log in to production, and they ask you to log in to external systems yourself.
 
-Models and effort are pinned in each agent's frontmatter; to change them, edit the agent file. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
+Models and effort are pinned in each agent's frontmatter; to change them, edit the agent file. The one exception is written into `/fix-bugs`, which launches `task-docs` and `task-qa` with `effort: high` for its bounded bug modes. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
 
 ## `/fix-bugs` command
 
-`/fix-bugs <epic ID or URL> [bug story IDs] [extra instructions]` fixes a batch of bug stories of one epic in a single run. The command (`common/.claude/commands/fix-bugs.md`) is a lighter sibling of `/implement` and uses the same five `task-*` agents, in their bug-fix modes.
+`/fix-bugs <epic ID or URL> [bug story IDs] [extra instructions]` fixes a batch of bug stories of one epic in a single run. The command (`common/.claude/commands/fix-bugs.md`) is a lighter sibling of `/implement`. Its own agent, `task-bugfixer`, owns one bug from diagnosis to fix, so the code is studied once; `task-reviewer`, `task-docs` and `task-qa` are shared with `/implement` and run in their bug modes. The planner and the implementer take no part.
 
 | Stage | Who | Output |
 |---|---|---|
 | Choose the bugs: open bug stories of the epic are listed and you answer which to fix (numbers, IDs or `all`); backend bugs are left out | you | |
-| Context: the chosen bugs in full, and the paths of the feature's document and test case file in the documentation repository. The epic is not read | orchestrator | `01-context.md` |
-| Diagnosis: root cause, fix, regression test, affected documentation and test cases, per bug | `task-planner` | `02-plan.md`, `02-plan/phase-<n>.md` |
+| Context: the chosen bugs in full, the paths of the feature's document and test case file, the base branches, how the application will be available, and the known environment. The epic is not read | orchestrator | `01-context.md` |
+| Worktrees, created before the diagnosis so the agents read the code directly; nothing is edited yet | orchestrator | |
+| Diagnosis, all bugs at the same time, one agent per bug: root cause, fix, regression test, affected documentation and test cases | `task-bugfixer` (opus) | `bugs/sc-<id>.md` |
 | **Diagnosis gate**: `approve`, feedback, `skip <ID>` or `cancel` | you | |
-| Fix and review, one bug at a time: failing regression test first, then the fix; one commit per bug | `task-implementer`, `task-reviewer` | code, `03-implementation/`, `04-review/` |
-| Documentation: the feature document is corrected only where it describes the affected behaviour; test cases are corrected, and a regression case is added for a bug no case would have caught | `task-docs` | `05-docs.md` |
-| Retest in the browser (Playwright): each story's steps to reproduce, the test cases tied to the bug, and a few unusual actions around the fixed spot | `task-qa` | `06-qa.md` |
+| Fix: the same agent of each bug continues with a failing regression test, then the fix. Bugs in different repositories run at the same time, bugs in one repository one after another | `task-bugfixer` | code, `bugs/sc-<id>.md` |
+| Review of each bug from its diff, with a fix loop; one commit per bug | `task-reviewer` (fable) | `bugs/sc-<id>.review.md` |
+| Documentation, at `high` effort: the feature document is corrected only where it describes the affected behaviour; test cases are corrected, and a regression case is added for a bug no case would have caught | `task-docs` (opus) | `05-docs.md` |
+| Retest in the browser (Playwright), after the documentation and at `high` effort. Per bug: the story's steps to reproduce, the test cases the documentation step changed, added or tied to the bug, executed as written, and up to three unusual actions at the fixed spot. A wrongly worded case comes back as a `DOC` finding | `task-qa` (opus) | `06-qa.md` |
 | **PR gate** (`yes / no / edit`), one pull request per repository, then the review bot loop | you, orchestrator | `07-pr.md` |
 | Summary and a short comment in every fixed bug story (`yes / no / edit <N>`) | orchestrator | |
 
-A problem found in the retest goes back through fix, review and documentation, and the affected items are run again. What the command writes outside your machine is the same as for `/implement`: a bug story moves to In Development when its fix starts, local commits follow the diagnosis approval, push and pull requests need `yes` at the PR gate, comments need `yes`.
+A retest finding caused by a fix goes back to that bug's agent, is reviewed again, and the failed items are rerun by a new QA instance. A defect that existed before the fix, or whose cause is in the backend, is reported as an `OUT` finding and starts no fix round: you decide at the PR gate whether it becomes a new story. What the command writes outside your machine is the same as for `/implement`: a bug story moves to In Development when its fix starts, code edits and local commits follow the diagnosis approval, push and pull requests need `yes` at the PR gate, comments need `yes`.
 
 Artifacts live in `.tasks/epic-<id>/bugfix-<n>/`, one directory per run, next to the `/implement` files and the `/epic-readiness` analysis of the same epic and separate from them. The requirements are the same as for `/implement`, including the fresh session.
+
+The pipeline costs more than fixing a bug directly in one session, because every agent starts with an empty context. It pays off for a batch of bugs; for one or two simple ones, asking for the fix directly is cheaper.
 
 ## `/epic-readiness` command
 
