@@ -380,7 +380,7 @@ Display rules of the company-group monthly report (`views/SpaviaReport`, contrac
 | `getGroupCountsLine(row)` | `22 with · 8 without`, `N/A` for an unknown count |
 | `getTopPerformersLine(row)` | `5 of 5 top performers`; `null` when there are no top performers or the number is unknown |
 | `getTimeToHireLine(row)` | `Median time to hire: 15.1d with, 28.1d without`, the one-sided forms (`15.1d with. No hires without.`), `null` when neither group hired |
-| `getWithheldMessage(row)` | `Not enough locations to compare: only N have this habit` and the `without` and both-groups forms, by `row.reason`; the bare prefix for any other reason |
+| `getWithheldMessage(row)` | `Not enough locations to compare: only N have this habit` and the `without` and both-groups forms, by `row.reason`; the verb agrees with a single location (`only 1 has this habit`, `only 1 is without it`); the bare prefix for any other reason |
 | `getChange(current, prior)` | `{ direction: 'up' \| 'down' \| 'same', pct }`: the change in percent to one decimal, `null` from a prior 0; a change that rounds to 0 is `same` |
 | `getHiresCaption(hires, prior, periodLabel)` / `getApplicantsCaption(applicants, prior)` | Network tile captions: `Up 24% from September`, `Same as September`, `Up from 0 in September`, `in <periodLabel>` without a prior / `from 1,083 applicants, down 6.6%`, `null` when applicants are unknown |
 | `formatMonthRange(firstKey, lastKey)` | `YYYY-MM` keys → `May to September 2026`, `December 2025 to October 2026`, `October 2026` |
