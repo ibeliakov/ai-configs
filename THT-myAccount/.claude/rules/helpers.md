@@ -362,7 +362,7 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 `getErrorResponse(error)`, `getErrorStatus(error)` — dependency-free readers of the axios response, shared by `forActions.ts` and the monitoring layer.
 
 ### `spaviaReport.ts`
-Display rules of the company-group monthly report (`views/SpaviaReport`, contract v1, sc-45123). Pure, no React; the types come from `store/slices/spaviaReport`. Report components format every figure through these helpers, never inline. Texts, labels, order, `display_name` and `figure` come from the server and are rendered as sent; the frontend's own copy is in `views/SpaviaReport/constants.ts`, the calendar-date helpers (`formatReportDate`, `formatMonthKey`, `getNextMonthKey`) in `views/SpaviaReport/helpers.ts`.
+Display rules of the company-group monthly report (`views/SpaviaReport`, contract `THT-docs/docs/api/spavia-reporting.md`, sc-45123). Pure, no React; the types come from `store/slices/spaviaReport`. Report components format every figure through these helpers, never inline. Texts, labels, order, `display_name` and `figure` come from the server and are rendered as sent; the frontend's own copy is in `views/SpaviaReport/constants.ts`, the calendar-date helpers (`formatReportDate`, `formatMonthKey`, `getNextMonthKey`) in `views/SpaviaReport/helpers.ts`.
 
 | Export | Purpose |
 |--------|---------|
@@ -384,6 +384,7 @@ Display rules of the company-group monthly report (`views/SpaviaReport`, contrac
 | `getChange(current, prior)` | `{ direction: 'up' \| 'down' \| 'same', pct }`: the change in percent to one decimal, `null` from a prior 0; a change that rounds to 0 is `same` |
 | `getHiresCaption(hires, prior, periodLabel)` / `getApplicantsCaption(applicants, prior)` | Network tile captions: `Up 24% from September`, `Same as September`, `Up from 0 in September`, `in <periodLabel>` without a prior / `from 1,083 applicants, down 6.6%`, `null` when applicants are unknown |
 | `formatMonthRange(firstKey, lastKey)` | `YYYY-MM` keys → `May to September 2026`, `December 2025 to October 2026`, `October 2026` |
+| `getHiresTrendMonths(months)` | The months of `network_health.hires_by_month` to draw. The API always sends 12 months, zero months included; the result starts at the first month with hires and runs to the end, so later zero months and the selected month stay; `[]` when no month has hires, and the chart then shows its empty text. The input is not changed |
 | `getLastLoginLabel(lastEntryAt, coverageStatus, tz, dateFormat)` | `last login <date>` in the report zone; without a date `never logged in` only when coverage is `complete`, otherwise `last login unknown` |
 | `getTenureLabel(tenureDays, createdDate, dateFormat)` | `835 days on Discovered (since 06/17/24)` (`1 day`); `Days on Discovered N/A` when either value is `null` |
 | `filterScorecards(locations, filter, query)` | Scorecards of one group (`filter` is `'all'` or a `SpaviaGroupKey`) whose `name` contains the trimmed query, case-insensitive |
@@ -427,7 +428,7 @@ Statuses of the reporting endpoints that get their own screen (`views/Reporting/
 | `getReportErrorStatus(error)` | HTTP status of a failed request, `null` without a response |
 | `isReportScreenStatus(status)` | `true` for the three statuses above |
 
-A report thunk calls `handleError` only when `!isReportScreenStatus(status)` and passes the status on through `rejectWithValue`; the page decides which of the screens it renders.
+A report thunk calls `handleError` only when `!isReportScreenStatus(status)` and passes the status on through `rejectWithValue`; the page decides which of the screens it renders. A 200 answer that holds no report is rejected with `status: null` and no toast; the page shows its generic load error with a retry.
 
 ---
 
