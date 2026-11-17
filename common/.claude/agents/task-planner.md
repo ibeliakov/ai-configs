@@ -1,6 +1,6 @@
 ---
 name: task-planner
-description: Plans a Shortcut task from read-only code research. Launched by /implement and /fix-bugs.
+description: Plans a Shortcut task from read-only code research. Launched by /implement.
 model: fable
 effort: high
 maxTurns: 80
@@ -53,7 +53,7 @@ When you are resumed, the message contains either answers to your open questions
      - Code maps are leads, not facts. They were made at an earlier commit and possibly on another branch: confirm every file and line you rely on at the code read path, and research what the maps do not cover.
      - Plan only what `Scope from the verdict` lists as in scope now. An area that waits goes under `Out of scope` with what it waits for.
      - `Questions already asked` are with the backend developer or the product manager. Do not return them as open questions. Plan around each one that is still open, using the fallback the person's decisions allow, and record it under `Backend dependencies` or `Risks and assumptions`.
-2. For every repository you will plan changes in, read `CLAUDE.md` and every file in `.claude/rules/` at the rules path before you read any code. A plan that ignores the project's conventions is rejected in review.
+2. For every repository you will plan changes in, read `CLAUDE.md` at the rules path before you read any code, and from `.claude/rules/` the files for the kinds of code the task changes. A catalogue file (a long list of helpers or components) is searched for the names you need, not read from top to bottom. A plan that ignores the project's conventions is rejected in review.
 3. Research the code, read-only.
    - When the code read path is a directory, read files there.
    - When it is a git ref (for example `origin/stage`), the main checkout is on a different branch and its files are the wrong revision. Read with `git -C <main checkout> show <ref>:<path>` and search with `git -C <main checkout> grep -n <pattern> <ref> -- <pathspec>`.
@@ -134,13 +134,17 @@ Numbered. Each step names the files to create or modify (path relative to the re
 <IDs from the context file>
 
 ## Verification
-Commands and manual checks specific to this phase, beyond the ones in the overview.
+Commands specific to this phase, beyond the ones in the overview. The implementer has no application and no browser: a check in the running application belongs in the QA scenarios of the overview's `Verification` section, not here.
 ```
 
 Rules for the content:
 
 - **Repositories and worktrees.** List every repository that will be changed, including the documentation repository when the context names one. Worktree directory is `<main checkout>-<id>` next to the main checkout; branch is `sc-<id>/<short-slug>` for a story and `epic-<id>/<short-slug>` for an epic. Base ref comes from the context.
-- **Phases.** A story is one phase. An epic gets one phase per included story, ordered so shared foundations come first. A refactoring or a library replacement gets one more phase in front: characterization tests (see **Tests**). Each phase is committed separately, so each must leave the code building and working on its own.
+- **Phases.** A story is normally one phase, and an epic gets one phase per included story, ordered so shared foundations come first. A refactoring or a library replacement gets one more phase in front: characterization tests (see **Tests**). Each phase is committed separately, so each must leave the code building and working on its own.
+- **Phase size.** A phase is implemented by one agent whose cost grows with every step it takes, so an oversized phase costs several times more than the same work in two phases. Size a phase so it can be finished in about sixty tool calls: usually 5 to 15 changed files, tests included.
+  - A story that needs more is split into several phases along its layers (types, API client and slice → components → wiring into pages), each one building and passing its tests on its own. They keep the same story ID and are numbered in order.
+  - Small neighbouring stories of one area (up to about three changed files each) may share a phase. The `Phases` table then lists all their IDs, the first one being the task number of the commit.
+  - Do not split below what can be reviewed and committed on its own.
 - **Level of detail.** Name real files, symbols and behaviours you have read. The implementer should not need to repeat your research or make design choices. Include a snippet only where a shape matters (a payload, a type, a selector); do not paste whole implementations.
 - **Tests.** All new and changed code is covered by automated tests, written with the project's own test runner and conventions.
   - The coverage criterion: in a new file every line and every branch is covered; in a changed file every changed line is covered. State it in the overview's `Tests` section, and list the scenarios that meet it in the `Tests` table of each phase file.
@@ -148,34 +152,6 @@ Rules for the content:
   - A refactoring or a library replacement starts with a separate first phase of characterization tests: tests that pin down the current behaviour and pass on the code as it is today. That phase changes no production code. The later phases must keep those tests passing without changing their scenarios.
   - If a repository has no test runner, do not skip its tests silently and do not plan a test setup on your own. Return an open question: set up testing as the first phase, proceed without automated tests in that repository as a recorded exception, or stop.
 - **No placeholders.** If you cannot decide something from the context and the code, it is an open question, not a "TBD" in the plan.
-
-## Mode: bug-fix
-
-When the launching prompt says `Mode: bug-fix`, you were launched by `/fix-bugs`. The context file lists bug stories of one epic instead of requirements, and the feature's existing documentation (its feature document and test case file, named in the context) is the reference for how the feature is meant to behave. Everything above applies, with these differences:
-
-- **Diagnose before you plan.** For every bug, follow its steps to reproduce through the code until you can name the root cause with `file:line`: the place where the behaviour goes wrong, not the place where it becomes visible. Read the part of the feature document that describes this behaviour, so you know what "right" is.
-- **One phase per bug.** Bugs that share one root cause go into one phase, named after all of them. Order the phases so a fix that others depend on comes first.
-- **The smallest fix that removes the cause.** No redesign and no clean-up of the surrounding code. If the proper fix is much larger than the bug suggests, say so and return an open question with the options.
-- **A regression test for every bug.** The `Tests` table of the phase names a test that fails on the current code and passes after the fix. The rule for a repository without a test runner stays as written above.
-- **What you do not plan.** A bug whose cause is in the backend, a report that describes intended behaviour, or a bug you cannot trace in the code gets no phase. List it in the overview under `Out of scope` with the evidence, and for a backend cause name the endpoint and what it returns against what it should.
-
-Each phase file gets four more sections, after `Steps`:
-
-```markdown
-## Root cause
-What goes wrong and where (`file:line`), and why it produces the reported behaviour.
-
-## Documentation impact
-The statements of the feature document that describe this behaviour: file, heading, and whether each is already right, wrong, or missing. "None" when the document does not cover it.
-
-## Test cases impact
-Test case IDs that cover this behaviour and what to change in each; the new case to add when none covers the bug.
-
-## QA after the fix
-The steps to reproduce from the story, restated as steps that must now pass, and the test case IDs to rerun.
-```
-
-In the overview, the `Phases` table lists the bug story IDs of each phase, and the `Documentation` section sums up the affected pages across all bugs.
 
 ## Tools and boundaries
 
