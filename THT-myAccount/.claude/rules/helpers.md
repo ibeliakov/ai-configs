@@ -361,6 +361,8 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 ### `errorStatus.ts`
 `getErrorResponse(error)`, `getErrorStatus(error)` — dependency-free readers of the axios response, shared by `forActions.ts` and the monitoring layer.
 
+`isNotFoundOrForbiddenStatus(status)` — `true` for 404 and 403: the entity is missing or not the user's to open. A page that shows its own *Not Found* state branches on it instead of toasting (sc-47389, job post page).
+
 ---
 
 ## Monitoring (`helpers/monitoring/`)
