@@ -79,6 +79,19 @@ link_shared_and_project_files() {
   fi
 }
 
+remove_dangling_links() {
+  local dir="$PROJECT_PATH/.claude/$1"
+  local f
+
+  [[ -d "$dir" ]] || return 0
+  for f in "$dir"/*.md; do
+    if [[ -L "$f" && ! -e "$f" && "$(readlink "$f")" == "$REPO_ROOT/"* ]]; then
+      rm "$f"
+      echo "  removed (source deleted) $f"
+    fi
+  done
+}
+
 echo "Project : $PROJECT"
 echo "Source  : $SOURCE_DIR"
 echo "Target  : $PROJECT_PATH"
@@ -131,6 +144,8 @@ fi
 
 link_shared_and_project_files commands
 link_shared_and_project_files agents
+remove_dangling_links commands
+remove_dangling_links agents
 
 # .claude/settings.local.json — inject AI_CONFIGS_DIR
 SETTINGS_LOCAL="$PROJECT_PATH/.claude/settings.local.json"

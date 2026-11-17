@@ -361,6 +361,8 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 ### `errorStatus.ts`
 `getErrorResponse(error)`, `getErrorStatus(error)` — dependency-free readers of the axios response, shared by `forActions.ts` and the monitoring layer.
 
+`isNotFoundOrForbiddenStatus(status)` — `true` for 404 and 403: the entity is missing or not the user's to open. A page that shows its own *Not Found* state branches on it instead of toasting (sc-47389, job post page).
+
 ### `spaviaReport.ts`
 Display rules of the company-group monthly report (`views/SpaviaReport`, contract `THT-docs/docs/api/spavia-reporting.md`, sc-45123). Pure, no React; the types come from `store/slices/spaviaReport`. Report components format every figure through these helpers, never inline. Texts, labels, order, `display_name`, `figure` and `figure_label` come from the server and are rendered as sent; the frontend's own copy is in `views/SpaviaReport/constants.ts`, the calendar-date helpers (`formatReportDate`, `formatMonthKey`, `getNextMonthKey`) in `views/SpaviaReport/helpers.ts`.
 
