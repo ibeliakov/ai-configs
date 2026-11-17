@@ -145,6 +145,17 @@ if (Test-Path $rulesDir -PathType Container) {
   }
 }
 
+$removedSharedFiles = @{ 'agents' = @('task-planner.md') }
+foreach ($kind in $removedSharedFiles.Keys) {
+  foreach ($name in $removedSharedFiles[$kind]) {
+    $stale = Join-Path $ProjectDir ".claude\$kind\$name"
+    if (Test-Path $stale) {
+      Remove-Item $stale -Force
+      Write-Host "  removed (no longer shared) $stale"
+    }
+  }
+}
+
 Link-SharedAndProjectFiles "commands"
 Link-SharedAndProjectFiles "agents"
 

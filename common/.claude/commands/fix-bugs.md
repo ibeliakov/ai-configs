@@ -198,7 +198,7 @@ For each bug:
 **c. Review.** Launch a new `task-reviewer`:
 
 ```text
-Mode: phase-review, round 1
+Mode: change-review, round 1
 Context file: <run dir>/01-context.md
 Bug file (the plan and the implementation report of this bug): <run dir>/bugs/sc-<id>.md
 Review file to write: <run dir>/bugs/sc-<id>.review.md
@@ -241,6 +241,7 @@ Code worktrees (read only):
 - <repo>: <worktree directory>
 Report to write: <run dir>/05-docs.md
 Application URL (only for retaking a screenshot the fix made wrong): <url, or "not available">
+UI tool: shared-browser | mobile-device <device ID> | none
 Test users: <settings file path>, key test_users
 ```
 
@@ -256,6 +257,7 @@ Bug files of the fixed bugs: <run dir>/bugs/sc-<id>.md, …
 Covered bugs: sc-<id>: covered by sc-<first id>, or "none"
 Documentation report: <run dir>/05-docs.md, or "none" (its Bugs table lists the cases to rerun for each bug)
 Documentation worktree: <worktree directory>
+UI tool: shared-browser | mobile-device <device ID>
 Test users: <settings file path>, key test_users
 Report to write: <run dir>/06-qa.md
 Screenshots directory: <run dir>/qa/
