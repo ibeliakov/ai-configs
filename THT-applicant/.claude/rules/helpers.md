@@ -297,6 +297,7 @@ Rules:
 - Do not report expected candidate states (camera permission, validation, an invalid or expired link): use a breadcrumb or nothing.
 - A new SSR page calls `reportServerError(error, context)` in its `catch`; intentional throws use `ExpectedError`.
 - A new provider is a file in `providers/` plus a line in `client.ts` or `server.ts`; application code does not change.
+- The off switch for an environment is a disabled client key in Sentry, not a flag in code: after a 401 or 403 from Sentry the browser transport (`providers/sentryTransport.ts`, used by `sentry.client.ts`) sends nothing for that DSN for one hour, remembered in `localStorage` under `monitoring:sentry-rejected` (sc-47464). The Node server keeps sending.
 
 ### `helpers/debugLogger.ts`
 
