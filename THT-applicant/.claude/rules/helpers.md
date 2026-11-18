@@ -131,6 +131,8 @@ Registry of the media streams a sitting keeps open: `setSittingStream('camera' |
 
 `isTurnstileRequired(plan)` — the sitting's `monitoring.turnstile_check` is `true`: a check that can't run blocks setup instead of passing. For the widget itself use `hooks/useTurnstileWidget`.
 
+`isTurnstileKeyMissing(turnstile)` — the sitting plan or the phone code check has a `turnstile` object with an empty `site_key`: the back end has no Turnstile keys, so the setup and the phone page say the check isn't available right now instead of advising a different browser.
+
 ### `helpers/displayCount.ts` / `helpers/screenShare.ts`
 
 - `getDisplayCount()` — `1` when `screen.isExtended` is `false`, otherwise `getScreenDetails().screens.length`, never below `2` while `screen.isExtended` is `true` (so it agrees with `hasExtraDisplay()`); `null` when the browser cannot tell
