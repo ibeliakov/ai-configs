@@ -458,6 +458,7 @@ Rules:
 - Expected states are not errors: 4xx, validation, cancellation, kill switches. An expected 5xx state goes into `EXPECTED_FAILURES` in `monitoring/apiErrors.ts`.
 - Never put emails, names, tokens or URLs with query strings into `tags`, `extra` or messages — use ids. `monitoring/scrub.ts` is a safety net, not permission.
 - Initialisation is the first import of `src/index.tsx` (`helpers/monitoring/init`); do not initialise anywhere else.
+- The off switch for an environment is a disabled client key in Sentry, not a flag in code: after a 401 or 403 from Sentry the transport (`providers/sentryTransport.ts`) sends nothing for that DSN for one hour, remembered in `localStorage` under `monitoring:sentry-rejected` (sc-47464).
 - A new provider is a file in `providers/` plus a line in `createMonitoringProviders()` (`config.ts`); application code does not change.
 
 ---
