@@ -397,6 +397,9 @@ Display rules of the company-group monthly report (`views/SpaviaReport`, contrac
 
 Result types: `MeasureDisplay`, `MeasureDisplayOptions`, `ScoreBand`, `Change`, `ScorecardFilter`, `ScorecardCounts`, `AnalysisPartView`.
 
+### `spaviaReportShape.ts`
+`isSpaviaReport(value)`: `true` when `value` is an object and every top-level section of the group report contract is an object: `brand`, `period`, `header`, `executive_summary`, `network_health`, `comparisons`, `recommended_actions`, `scorecards`, `analysis`, `export`. Only the sections are checked, not the fields inside them. `getSpaviaReport` rejects anything else with `status: null` and no toast: `null`, and the earlier payload (`network_kpis`, `trend`, `locations`, `narrative`, no `header`) that a backend without the current contract still returns. The page then shows its load error with a retry instead of crashing. Separate from `spaviaReport.ts` on purpose: that module's imports reach `reducers`, and the slice importing it would break its own load order.
+
 ### `exportReportPdf.ts`
 Client-side PDF of a report page (the back end has no export endpoint), Letter portrait. Pages use it through `views/Reporting/components/ReportPdfButton` (or `ReportExportButtons` in CSS reporting), which shows `templates/BlockingOverlay` and the failure toast.
 
@@ -430,7 +433,7 @@ Statuses of the reporting endpoints that get their own screen (`views/Reporting/
 | `getReportErrorStatus(error)` | HTTP status of a failed request, `null` without a response |
 | `isReportScreenStatus(status)` | `true` for the three statuses above |
 
-A report thunk calls `handleError` only when `!isReportScreenStatus(status)` and passes the status on through `rejectWithValue`; the page decides which of the screens it renders. A 200 answer that holds no report is rejected with `status: null` and no toast; the page shows its generic load error with a retry.
+A report thunk calls `handleError` only when `!isReportScreenStatus(status)` and passes the status on through `rejectWithValue`; the page decides which of the screens it renders. A 200 answer that holds no report, or a report without the shape of the current contract (`isSpaviaReport` for the group report), is rejected with `status: null` and no toast; the page shows its generic load error with a retry.
 
 ---
 
