@@ -363,6 +363,78 @@ Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
 
 `isNotFoundOrForbiddenStatus(status)` — `true` for 404 and 403: the entity is missing or not the user's to open. A page that shows its own *Not Found* state branches on it instead of toasting (sc-47389, job post page).
 
+### `spaviaReport.ts`
+Display rules of the company-group monthly report (`views/SpaviaReport`, contract `THT-docs/docs/api/spavia-reporting.md`, sc-45123). Pure, no React; the types come from `store/slices/spaviaReport`. Report components format every figure through these helpers, never inline. Texts, labels, order, `display_name`, `figure` and `figure_label` come from the server and are rendered as sent; the frontend's own copy is in `views/SpaviaReport/constants.ts`, the calendar-date helpers (`formatReportDate`, `formatMonthKey`, `getNextMonthKey`) in `views/SpaviaReport/helpers.ts`.
+
+| Export | Purpose |
+|--------|---------|
+| `EMPTY_VALUE` (`—`), `UNAVAILABLE_VALUE` (`N/A`) | A dash: nothing to measure in the period. `N/A`: the figure isn't available yet. A missing value is never shown as 0 |
+| `formatCount(value)` / `formatPct(value)` / `formatDays(value)` | `1,083` / `42%` / `15.1d`; `—` for `null` or `undefined` |
+| `formatScore(value)` | A rating to one decimal (`3.0`) |
+| `formatFirstReply(hours)` | `47h` below 48 hours, days to one decimal from 48 (`2d`, `2.2d`) |
+| `splitParagraphs(text)` | Server text split on blank lines, trimmed, empty parts dropped; `[]` for `null` |
+| `getMeasureDisplay(measure, format, { zeroAsEmpty? })` | `{ text, kind }` of a `SpaviaMeasure`: `unavailable` → `N/A`; `available` with a number → `format(value)` (0 → `—` with `zeroAsEmpty`); anything else → `—`. Components render a measure with `views/SpaviaReport/components/MeasureValue`, which adds the N/A tooltip |
+| `isFirstReplySlow(measure)` / `isOldestWaitLong(measure)` / `isNoShowHigh(measure)` | Red-figure thresholds, only for available values: over 24 hours / over 14 days / 35% and over |
+| `hasUnavailable(...measures)` | Any of the measures (or action lists) has status `unavailable`: the section shows the N/A note (`UnavailableNote`) |
+| `getScoreBand(value)` | `high` from 2.5, `mid` from 2.2, `low` below |
+| `getBarWidthPct(value, max)` | Bar width in percent clamped to 0–100; 0 for `null` or `max <= 0` |
+| `getMaxComparisonRate(rows)` | Largest hire rate of either group over the `available` rows, 0 when none: the one scale for every comparison bar |
+| `getGroupCountsLine(row)` | `22 with · 8 without`, `N/A` for an unknown count |
+| `getTopPerformersLine(row)` | `5 of 5 top performers`; `null` when there are no top performers or the number is unknown |
+| `getTimeToHireLine(row)` | `Median time to hire: 15.1d with, 28.1d without`, the one-sided forms (`15.1d with. No hires without.`), `null` when neither group hired |
+| `getWithheldMessage(row)` | `Not enough locations to compare: only N have this habit` and the `without` and both-groups forms, by `row.reason`; the verb agrees with a single location (`only 1 has this habit`, `only 1 is without it`); the bare prefix for any other reason |
+| `getChange(current, prior)` | `{ direction: 'up' \| 'down' \| 'same', pct }`: the change in percent to one decimal, `null` from a prior 0; a change that rounds to 0 is `same` |
+| `getHiresCaption(hires, prior, periodLabel)` / `getApplicantsCaption(applicants, prior)` | Network tile captions: `Up 24% from September`, `Same as September`, `Up from 0 in September`, `in <periodLabel>` without a prior / `from 1,083 applicants, down 6.6%`, `null` when applicants are unknown |
+| `formatMonthRange(firstKey, lastKey)` | `YYYY-MM` keys → `May to September 2026`, `December 2025 to October 2026`, `October 2026` |
+| `getHiresTrendMonths(months)` | The months of `network_health.hires_by_month` to draw. The API always sends 12 months, zero months included; the result starts at the first month with hires and runs to the end, so later zero months and the selected month stay; `[]` when no month has hires, and the chart then shows its empty text. The input is not changed |
+| `getLastLoginLabel(lastEntryAt, coverageStatus, tz, dateFormat)` | `last login <date>` in the report zone; without a date `never logged in` only when coverage is `complete`, otherwise `last login unknown` |
+| `getTenureLabel(tenureDays, createdDate, dateFormat)` | `835 days on Discovered (since 06/17/24)` (`1 day`); `Days on Discovered N/A` when either value is `null` |
+| `filterScorecards(locations, filter, query)` | Scorecards of one group (`filter` is `'all'` or a `SpaviaGroupKey`) whose `name` contains the trimmed query, case-insensitive |
+| `countScorecardsByGroup(locations, query)` | Query matches for `all` and each group key: the filter chip counts follow the search |
+| `getNoMatchMessage(query, groupLabel?)` | `No locations match "x".`, `No locations match "x" in <group>.`, `No locations in <group>.`, `No locations.` |
+| `getAnalysisParts(analysis)` | Analysis parts in server order as `{ key, heading, paragraphs }`, the correlation disclaimer appended once to `shared_habits` (or to the last part); the input is not changed |
+| `getGroupReportLabel(groupName?)` | `<group name> Report`, `Report` while the name is missing: the menu button and the Users report-access toggle |
+
+Result types: `MeasureDisplay`, `MeasureDisplayOptions`, `ScoreBand`, `Change`, `ScorecardFilter`, `ScorecardCounts`, `AnalysisPartView`.
+
+### `spaviaReportShape.ts`
+`isSpaviaReport(value)`: `true` when `value` is an object and every top-level section of the group report contract is an object: `brand`, `period`, `header`, `executive_summary`, `network_health`, `comparisons`, `recommended_actions`, `scorecards`, `analysis`, `export`. Only the sections are checked, not the fields inside them. `getSpaviaReport` rejects anything else with `status: null` and no toast: `null`, and the earlier payload (`network_kpis`, `trend`, `locations`, `narrative`, no `header`) that a backend without the current contract still returns. The page then shows its load error with a retry instead of crashing. Separate from `spaviaReport.ts` on purpose: that module's imports reach `reducers`, and the slice importing it would break its own load order.
+
+### `exportReportPdf.ts`
+Client-side PDF of a report page (the back end has no export endpoint), Letter portrait. Pages use it through `views/Reporting/components/ReportPdfButton` (or `ReportExportButtons` in CSS reporting), which shows `templates/BlockingOverlay` and the failure toast.
+
+| Export | Purpose |
+|--------|---------|
+| `exportReportPdf({ element, fileName, margin? })` | One-canvas path (`html-to-pdf-js`) for the CSS dashboards: rasterizes the whole element once and slices the bitmap into pages, pushing headings, `tr` and `[data-report-avoid-break]` past a page edge. Fine for a few pages; a long document runs into the browser's canvas height limit |
+| `exportPagedReportPdf({ element, fileName, margin? })` | Paged path for long reports (`ReportPdfButton paged`, the group report): moves every block that would cross a page edge to the next page (`paginateBlocks`), then rasterizes four pages per `html2canvas` pass and adds one JPEG per page to a `jspdf` document. Margins and layout are restored even when the export fails |
+| `paginateBlocks(element, pageHeightPx)` / `getPagePush(top, height, pageHeight)` | The pagination step and its arithmetic (`margin-top` added to a crossing block, a restore function returned; 0 for a block that fits or is taller than a page). Exported for tests |
+| `AVOID_BREAK_ATTRIBUTE`, `KEEP_WITH_NEXT_ATTRIBUTE`, `PRINTING_ATTRIBUTE` | Names of the attributes below |
+
+Both take `fileName` without `.pdf`, do nothing for a `null` element and take `margin` in inches (default 0.6; the group report passes `PDF_MARGIN_IN`). While exporting, the element is laid out at the printable width so charts redraw at page size. These attributes drive the export; all of them work in both paths except `data-report-keep-with-next`:
+
+| Attribute | Put on | During the export |
+|-----------|--------|-------------------|
+| `data-report-no-print` | Toolbars, filters, toggles, buttons, info tips | Hidden |
+| `data-report-print-only` | Content for the PDF only (the CSS print meta line), hidden on screen by its own inline `display: none` | Shown with `display: block`, then restored; the attribute alone does not hide anything |
+| `data-report-printing` | Set by the exporter on the exported element | Lets styles change the print layout: `:global([data-report-printing]) …` in the module |
+| `data-report-avoid-break` | A block | Not cut by a page edge when it fits on one page |
+| `data-report-keep-with-next` | An element that also carries `data-report-avoid-break` and must stay with the next block (a section heading) | Paged path only (`exportPagedReportPdf`): moves together with the next block while both fit on one page. Ignored on an element without `data-report-avoid-break`, and by `exportReportPdf` |
+
+A block in the paged path is an element with `data-report-avoid-break` that is not inside another such element and has a layout box (hidden ones are skipped). A block is as wide as the report: cards that sit side by side belong to one block. Content outside a block can be cut, and so can a block taller than a page. Anything more the PDF needs (every group, every list expanded, filters ignored) is the page's own print mode: switch it on in the button's `onBeforeExport` with `flushSync`, so it is rendered before the layout is measured, and off in `onAfterExport` (see `views/SpaviaReport/SpaviaReport.tsx`).
+
+### `reportError.ts`
+Statuses of the reporting endpoints that get their own screen (`views/Reporting/components/ReportStateScreen`, with `onRetry`) instead of an error toast:
+
+| Export | Purpose |
+|--------|---------|
+| `REPORT_STATUS_NO_ACCESS` (403) | The group or the per-user report feature is off |
+| `REPORT_STATUS_NOT_FOUND` (404) | The selected cohort or account is gone or belongs to another group |
+| `REPORT_STATUS_PAUSED` (503) | The reporting kill switch is on |
+| `getReportErrorStatus(error)` | HTTP status of a failed request, `null` without a response |
+| `isReportScreenStatus(status)` | `true` for the three statuses above |
+
+A report thunk calls `handleError` only when `!isReportScreenStatus(status)` and passes the status on through `rejectWithValue`; the page decides which of the screens it renders. A 200 answer that holds no report, or a report without the shape of the current contract (`isSpaviaReport` for the group report), is rejected with `status: null` and no toast; the page shows its generic load error with a retry.
+
 ---
 
 ## Monitoring (`helpers/monitoring/`)
