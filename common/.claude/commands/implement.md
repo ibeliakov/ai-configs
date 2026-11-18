@@ -6,9 +6,13 @@ disable-model-invocation: true
 
 # Implement
 
+> After a compaction of the conversation these instructions come back cut short. Whenever you continue a run and cannot see Step 13 and the templates below it, read this file again from start to end (`.claude/commands/implement.md` in the session directory; in several ranges when one read is refused for its size) and then the `state.md` of the run, before you act.
+
 Takes a Shortcut story or epic through a multi-agent pipeline:
 
-context → plan in plan mode → **plan approval** → worktrees and application → parts built in waves (implement, check, commit, review) → documentation and QA → **PR gate** → review bot → summary
+context → plan in plan mode → **plan approval** → worktrees and application → parts built in waves (implement, check, commit, review) → second review by another model → documentation and QA → **PR gate** → review bot → summary
+
+A large task is delivered in batches: each batch of waves gets its pull request into the task branch as soon as it is built, the review bot's findings are fixed in that pull request, and the person reviews and merges it before the next batch is built.
 
 **Usage:** `/implement <story ID | epic ID | story URL | epic URL> [extra instructions]`
 
@@ -21,22 +25,25 @@ You are the planner and the orchestrator, and you run in the main session. You r
 | `Explore`, `Plan` (built in, read only) | research the code while you plan | nothing: their findings come back in their final message |
 | `task-implementer` | builds one part and proves it works (tests, UI check), fixes findings | code in worktrees, `03-implementation/part-<n>.md` |
 | `task-reviewer` | reviews the commit of a part, verifies fixes, reviews a wave across its parts, triages bot comments | `04-review/part-<n>.md`, `04-review/wave-<w>.md`, triage in `07-pr.md` |
-| `task-docs` | documents the feature, writes test cases | documentation worktree, `05-docs.md` |
-| `task-qa` | tests the running application | `06-qa.md` |
+| a fork of this session | writes the documentation and the test cases: it inherits what you know about the feature | documentation worktree, `05-docs.md` |
+| `task-docs` | brings the documentation in line after fixes (`sync`), and writes it when a fork cannot be used | documentation worktree, `05-docs.md` |
+| Codex (another model, run through `scripts/codex-run.mjs`) | reviews the whole branch a second time, and tests the running application in a browser of its own | `04-review/codex-<repo>.md`, `06-qa.md` |
+| `task-qa` | tests the running application when Codex is not used | `06-qa.md` |
 
-Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Everything else runs on Opus at `xhigh`: the three other `task-*` agents by their files, you and the research agents by the session (Step 1).
+Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Everything else runs on Opus at `xhigh`: the three other `task-*` agents by their files, you, the research agents and the documentation fork by the session (Step 1). Codex runs on its own model and its own quota.
 
 ---
 
 ## Rules that hold in every step
 
-1. **Launching agents.** Call the Agent tool with `subagent_type` set to one of the four `task-*` names above, or, while you plan, to `Explore` or `Plan`. Do not pass `model`, `effort` or `isolation` to a `task-*` agent: the model and effort are pinned in each agent's file and a parameter would override them. Launch `Explore` with `model: "opus"`; `Plan` inherits the session. Do not use any other agent type or a fork, and do not do an agent's job yourself. If an agent cannot be launched, stop and tell the person.
+1. **Launching agents.** Call the Agent tool with `subagent_type` set to one of the four `task-*` names above, or, while you plan, to `Explore` or `Plan`. Do not pass `model`, `effort` or `isolation` to a `task-*` agent: the model and effort are pinned in each agent's file and a parameter would override them. Launch `Explore` with `model: "opus"`; `Plan` inherits the session. The only fork you start is the documentation writer of Step 8. Do not use any other agent type or any other fork, and do not do an agent's job yourself. If an agent cannot be launched, stop and tell the person.
 2. **State travels through files.** Every `task-*` agent reads and writes files in the task directory. Give agents absolute paths. Never paste or paraphrase one agent's result into another agent's prompt: point to the file. The only text of your own in a prompt is the live notes of rule 14.
 3. **Agents run in the background.** After you launch or resume one, end your turn with one line saying what is running. Continue when a completion notification arrives, and do everything that has become possible in that one turn: commit, launch the reviewer, launch the parts that can start, update `state.md`. Never predict, summarise or act on a result you have not received.
 4. **One agent, one unit of work.** An agent reads its whole history again on every turn it takes, so a long-lived agent gets more expensive with every step. Keep histories short:
    - the implementer and the reviewer are launched anew for every part, and resumed only inside that part (answers to their questions, the fix loop, the turn with the UI tool). A wave fix, a QA fix round and a review bot round also get new instances;
    - `task-docs` and `task-qa` are resumed only for answers to their questions. A `sync`, a `cases` run or a `retest` is a new instance that reads the earlier report;
-   - never run two instances of `task-docs`, or two of `task-qa`, at the same time;
+   - never run two instances of `task-docs` at the same time, and never two QA runs, whether on Codex or with `task-qa`: they write one report;
+   - a fork and a Codex run are never resumed: a new one continues from the report;
    - an agent that returns `status: partial` has handed its work over on purpose: launch a new instance of the same type with the same prompt and the added line "Continue from the report: `<path>`". It is not resumed;
    - an agent that stopped at its turn limit has not written its report yet. Resume it once with: "Do not continue the work. Write your report now with `Status: partial` and what remains, then stop." Then launch a new instance as above. The reviewer has no hand-over: resume it with "Continue from where you stopped."
 
@@ -47,7 +54,7 @@ Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Ever
 
    Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers.
 6. **Nothing is built before the plan is approved.** Until the person approves the plan there are no worktrees, no code edits and no commits. Plan mode enforces this while you plan.
-7. **Git.** Only you commit, only inside task worktrees, only after the plan is approved, and always by the project's commit command (Step 7, "Commits"). Agents never run a git command that writes. Push and open pull requests only after `yes` at the PR gate. Never merge, never force-push, never rewrite history, never change a main checkout.
+7. **Git.** Only you commit, only inside task worktrees, only after the plan is approved, and always by the project's commit command (Step 7, "Commits"). Agents never run a git command that writes. Push and open pull requests only after `yes` at the PR gate, with one exception that the person approves with the plan: in a repository delivered in batches, every batch is pushed and gets its pull request into the task branch as soon as it is built, and the fixes of that pull request are pushed to it (Step 7, "Batches"). Nothing reaches a base branch before the PR gate. Never merge a pull request: the person merges. A local merge into the working branch of a task worktree is made only where "Batches" names it: the task branch after the person merged a batch, the batch branch after the person committed to its pull request, and the base branch when the person asked for it. Never force-push, never rewrite history, never change a main checkout.
 8. **Shortcut.** Read freely through the Shortcut MCP tools and the REST API (GET only). Exactly two writes are allowed: moving a story to In Development (automatic, Steps 2 and 7) and one final comment after an explicit `yes` (Step 13). Nothing else, ever.
 9. **Credentials.** Local and staging applications are entered with the test users from local settings. External systems are entered by the person, never by you or an agent. Production is never entered or tested. Credential values never go into any file.
 10. **Language.** Files, prompts and artifacts are in English, with one exception: the part of the plan that is written for the person (Step 3) is in the language the person uses. Talk to the person in that language too.
@@ -57,9 +64,15 @@ Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Ever
     - While you plan: the requirements you read yourself; the code is read by research agents, and you open only the ranges a decision depends on.
     - While you build: do not read reports, reviews or source files in full. Take what you need from an agent's final message and from `state.md`, or fetch one section or one table with a targeted search. Do not reread the plan either: open a card only to answer a question about it.
     - Keep the output of your commands short, and filter an API response before it reaches the conversation. Load the deferred tools you will need (the Shortcut tools, `SendMessage`, `TaskStop`, `EnterPlanMode`, `ExitPlanMode`) in one ToolSearch call at the start, not one by one.
-    - Measure instead of guessing: `node "$AI_CONFIGS_DIR/scripts/session-context.mjs"` prints the size of your context. Run it after the plan is approved and at the end of every wave. Above about 150K tokens after the approval, or about 200K at the end of a wave, tell the person that the run is cheaper to continue in a new session (`/clear`, then `/implement` with the same ID: everything it needs is in files) and ask with AskUserQuestion whether to continue here or stop for that. Offer it only while no agent is running. When the script prints `unknown`, judge by how much you have read.
+    - Measure instead of guessing: `node "$AI_CONFIGS_DIR/scripts/session-context.mjs"` prints the size of your context. Run it after the plan is approved, at the end of every wave, after a batch is merged, and before the documentation fork (Step 8a). Above about 150K tokens after the approval, or about 200K at the end of a wave or after a batch, tell the person that the run is cheaper to continue with a smaller context, and ask with AskUserQuestion:
+      - compact this conversation: the person runs `/compact Keep the task key, the task directory, the session directory and the stage of state.md; the rest of the run is in files`, and then writes `continue`. The conversation, its agents and their history stay;
+      - continue in a new conversation: the person runs `/implement` with the same ID there. This conversation stays as it is and can be opened again;
+      - go on as it is.
+
+      Never suggest `/clear`: it replaces this conversation, and the person loses sight of its agents and of what they reported. Offer the choice only while no agent is running, and first make sure `state.md` holds everything the run needs. After a compaction, read this file and `state.md` again and continue from the recorded stage. When the script prints `unknown`, judge by how much you have read.
 14. **Live notes.** You may add up to five lines of your own to an agent's prompt, under `Notes from the orchestrator`: what an earlier part exported and where, a decision the person made after the plan was approved, a pitfall another agent reported. Facts with paths only, and nothing that contradicts the card.
-15. **The UI tool has one user at a time.** The browser of the session (the `playwright` server) and the mobile device (the `mobile-mcp` server) are shared by every agent, and two agents using one of them at the same moment break each other's pages. Record the holder in `state.md` and give the tool to the next agent only after the holder has returned. A turn ends when its holder returns, with whatever status: every later message to that agent, and the prompt of an instance that continues its work, says again whether it has the tool. The one agent with a browser of its own is `task-docs` (Step 8).
+15. **The UI tool has one user at a time.** The browser of the session (the `playwright` server) and the mobile device (the `mobile-mcp` server) are shared by every agent, and two agents using one of them at the same moment break each other's pages. Record the holder in `state.md` and give the tool to the next agent only after the holder has returned. A turn ends when its holder returns, with whatever status: every later message to that agent, and the prompt of an instance that continues its work, says again whether it has the tool. A Codex run with a browser is outside this rule, because it starts a browser of its own; on the mobile device it takes its turn like everyone else.
+16. **Codex.** The second review (Step 7i) and QA (Step 8b) are done by Codex, another model with its own quota. Start it only through `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs"`, as a background shell command: one line saying what runs, then wait for the notification, as with an agent. The script prints a short block; act on that block and do not read its logs. When Codex is not ready, or a run ends with `status: failed`, show the person the `reason` line and ask with AskUserQuestion: for the second review, try again or skip it; for QA, try again, use `task-qa`, or skip QA. Record the answer in the `Finish` table of `state.md`. An answer other than "try again" holds for the rest of the run: do not ask the same question at the next step.
 
 ---
 
@@ -82,15 +95,17 @@ Check, in this order, and stop at the first failure that blocks the run:
 
 1. **Shortcut MCP.** The `mcp__shortcut__*` tools are available. If not, tell the person to run the setup script for this project, restart Claude Code, check `/mcp`, complete the OAuth login, and stop.
 2. **Not in plan mode yet.** This command writes files before it plans, and enters plan mode itself in Step 3. If the session is already in plan mode, ask the person to leave it and run the command again.
-3. **A fresh session.** This command has to start in a session with little history, because of rule 13. If this conversation already holds substantial earlier work (a run of another command such as `/epic-readiness`, a long analysis, many files read), stop: ask the person to start a new session, or to run `/clear`, and start the command again. Nothing is lost, since everything this command needs is in files.
+3. **A small context.** Because of rule 13 this command is cheapest in a conversation with little history. If this one already holds substantial earlier work (a run of another command such as `/epic-readiness`, a long analysis, many files read), say that every one of your hundred or more turns will read it again, and ask with AskUserQuestion: start the command in a new conversation (this one stays as it is, and everything the command needs is in files), compact this one first (`/compact`, then the command again), or go on here. Never suggest `/clear` (rule 13).
 4. **Model.** You plan and orchestrate on the session's model, and the research agents inherit it: it should be Opus at `xhigh` effort. Check the model you are running on and the effort (`echo "$CLAUDE_EFFORT"`). If either differs, say so and ask with AskUserQuestion: the person switches and answers, or the run continues as it is.
 5. **Agents and scripts installed.** The four `task-*` agent types are available, and `ls "$AI_CONFIGS_DIR/scripts/split-plan.mjs"` finds the script. If not, tell the person to run the setup script and restart Claude Code (a newly created `agents` directory is picked up only after a restart), and stop.
-6. **GitHub CLI.** Run `gh auth status`. If it fails, warn now that Steps 10 and 11 will be skipped and the pull requests will have to be opened by hand, then continue.
+6. **GitHub CLI.** Run `gh auth status`. If it fails, warn now that Steps 10 and 11 will be skipped, that the pull requests will have to be opened by hand, and that nothing will be delivered in batches (Step 3e), then continue.
 7. **Existing run.** A run of this command exists only when `<task dir>/state.md` exists. A task directory that holds nothing but `readiness/` is an epic analysis, not a run: go on to Step 2. When `state.md` exists, read it and ask with AskUserQuestion whether to continue from the recorded stage or start over.
    - On continue, jump to that stage. Agents of the earlier session are not resumed (rule 4). A part that was being implemented or fixed is continued by a new implementer with "Continue from the report" when its report exists, and from its card otherwise, with a note that files of the part may already exist.
+   - Stage `batch <b>`: a batch is being delivered. Take its row of the `Batches` table, look at its pull request when it has one (`gh pr view <number> --json state,mergedAt`), and go on with "Batches" of Step 7 from the step the row names.
    - Stage `planning`: the plan was not approved. A draft may exist in the plans directory: `grep -l "implement-run: <key>" ~/.claude/plans/*.md`. Take what it holds and plan from Step 3.
    - A run in the older phase layout (`state.md` has a `Phases` table, `02-plan/` holds `phase-<n>.md` files or nothing) is not planned again. Run `node "$AI_CONFIGS_DIR/scripts/split-plan.mjs" --legacy <task dir>` once: it writes `02-plan/common.md` from the old overview. Each phase that remains is built as a part in a wave of its own, in the order of the old plan: its card is `02-plan/phase-<n>.md` (or its section of `02-plan.md`), and its report and review keep the `phase-<n>` names. Documentation and QA run one after the other (Step 8), with `02-plan.md` given wherever a prompt asks for a section file of the plan.
    - On start over, delete only this command's own files (`state.md`, `01-context.md`, `02-plan.md`, `02-plan/`, `03-implementation/`, `04-review/`, `05-docs.md`, `06-qa.md`, `07-pr.md`, `checks/`, `ui/`, `qa/`, and the single-file reports of an older run), keep `attachments/`, and leave `readiness/` untouched.
+8. **Codex.** Skip this check when the `state.md` of a continued run already holds the person's answer about Codex. Otherwise run `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" check`. If the line it prints does not start with `codex: ready`, tell the person that the second review and QA are planned on Codex, and ask with AskUserQuestion: the person sets Codex up and answers, or the run goes on without it (no second review, QA with `task-qa`). Keep the answer for the `Codex` line of `state.md`, which is written in Step 2 (rule 16).
 
 ## Step 2. Collect the context
 
@@ -195,7 +210,7 @@ The epic is reference material. The scope of the run stays the story you were gi
 2. Decide which repositories the task changes (frontend projects, and the documentation repository when the workspace has one) and which are read-only references (backend).
 3. For every repository that will change, run `git -C <repo> fetch origin --prune` and ask the person for the base branch with AskUserQuestion, offering the integration branches found in `git -C <repo> branch -r` (for example `stage`, `beta-stage`, a current sprint branch, `main`). Ask for all repositories in one call. Skip the question for a repository whose branch the person already chose during the epic analysis (2b).
 
-   In the same call ask how each application the task changes will be available for UI checks, documentation and QA, so that nothing stops the run between the plan approval and the PR gate: you start it from the worktree; the person runs it from the worktree (name the directory, `<main checkout>-<id>`, and ask for the URL, or for the mobile application the simulator or emulator it will be open on); or there is no application (UI checks and QA are skipped and documentation is written without screenshots; these facts go into the summary).
+   In the same call ask how each application the task changes will be available for UI checks, documentation and QA, so that the run does not have to stop for this question later: you start it from the worktree; the person runs it from the worktree (name the directory, `<main checkout>-<id>`, and ask for the URL, or for the mobile application the simulator or emulator it will be open on); or there is no application (UI checks and QA are skipped and documentation is written without screenshots; these facts go into the summary).
 4. Find the code read path for planning: a checkout of that repository whose `HEAD` equals `origin/<base>` (check the main checkout and `git -C <repo> worktree list --porcelain`). If there is none, the read path is the ref `origin/<base>` itself.
 5. The rules path is the main checkout: `<repo>/CLAUDE.md` and `<repo>/.claude/rules/`.
 
@@ -241,6 +256,7 @@ Read code yourself only where a decision depends on the exact text: the few rang
 - **Size.** An implementer's cost grows faster than its work, so a part is sized to about forty tool calls: usually 3 to 10 changed files, tests included. Small neighbouring components go together, two or three to a part. Do not cut below what can be built, tested and reviewed on its own: a slice with its tests is a part, a single trivial file is not.
 - **Ownership.** Every file that is created, changed or deleted belongs to exactly one part of its wave. Parts of one wave do not depend on each other and share no file. A file that several parts would touch (a registry, a barrel file, the routes, the locale strings) is given to one part, placed in an earlier or later wave.
 - **Order.** A part goes into the first wave after the parts it depends on. When a part changes files of an earlier part, or builds on a contract that the review of that part may still change (a new public API, non-trivial logic), mark it `Starts after review of` that part; otherwise the next wave starts while the reviews of the previous one are still running.
+- **Batches.** When the parts of one code repository change more than about 70 files, the run is delivered in batches, so that the review bot and the person get pull requests of a size that can be read, one at a time and spread over the run. A batch is a run of whole waves with about 50 changed files, counted from the cards: a wave is never split, and a last batch under about 15 files joins the one before it. Batches belong to the run: every wave is in exactly one batch, and every part gets its batch in the parts table. The size is counted over the repositories that are delivered in batches; a part of another repository sits in the batch of its wave and is not pushed with it. A batch is built, gets its pull request into the task branch, and is merged by the person before the next batch is built (Step 7, "Batches"), so a batch has to make sense on its own, and what the person should see first goes into the early ones. A repository below that size, the documentation repository, and every repository when `gh` is not available (Step 1) have no batches: one pull request each, opened at the PR gate.
 - **Skeleton first.** Every part with a user interface has to be visible in the running application the moment it is built. If the page or screen does not exist yet, the first wave builds the skeleton: the types and the contract, the API client, and the page wired to its route with fixture data and placeholders. Later parts fill it in.
 - **Contracts.** Parts of one wave are written at the same time by agents that do not see each other's code, so they never import from each other: what two of them need (a type, a shared helper, the slot a component is rendered into) belongs to an earlier wave, usually the skeleton. Whatever a part provides to later parts or takes from earlier ones (a type, the props of a component, a payload, a selector) is written down in the cards on both sides, with a snippet where the shape matters.
 - **Tests.** All new and changed code is covered by automated tests, written with the project's own test runner and conventions. The coverage criterion: in a new file every line and every branch is covered; in a changed file every changed line is covered. Code that cannot reasonably be unit-tested (styles, static configuration, type-only files, generated code) goes under `Not covered` with the reason; keep that list honest and short.
@@ -249,7 +265,7 @@ Read code yourself only where a decision depends on the exact text: the few rang
 - **Stories.** In an epic every part belongs to one story; several small stories may share a part, the first one giving the task number of the commit.
 - **Detail.** Name real files, symbols and behaviours that the research confirmed. The implementer reads only the common section and its own card, so the card has to be enough: it should not have to repeat your research or make design choices. Include a snippet only where a shape matters; do not paste whole implementations.
 
-**3f. Write the plan file** in the format of the `Plan` template at the end of this file: first the part for the person, in the person's language, then the sections for the agents, in English. Worktree directories are `<main checkout>-<id>` next to the main checkout; branches are `sc-<id>/<short-slug>` for a story and `epic-<id>/<short-slug>` for an epic.
+**3f. Write the plan file** in the format of the `Plan` template at the end of this file: first the part for the person, in the person's language, then the sections for the agents, in English. Worktree directories are `<main checkout>-<id>` next to the main checkout; branches are `sc-<id>/<short-slug>` for a story and `epic-<id>/<short-slug>` for an epic. In a repository delivered in batches that branch is the task branch, the one the batches are merged into.
 
 ## Step 4. Plan approval (mandatory)
 
@@ -259,20 +275,20 @@ Read code yourself only where a decision depends on the exact text: the few rang
 - **The person keeps planning**, with or without comments → treat every comment as feedback: change the plan file in place, bump the revision, add a line to the revision log, and call `ExitPlanMode` again. There is no limit on the number of rounds.
 - **Cancelled** → once out of plan mode, set the stage in `state.md` to `cancelled` and stop.
 
-Without plan mode (Step 3a): show a summary of the plan in at most ten lines, the path of `02-plan.md`, the parts table and everything listed under `Not covered`, and say that the exact word `approve` also allows local commits in the task worktrees. Anything else than `approve` or `cancel` is feedback; a bare "ok" or "yes" is not approval.
+Without plan mode (Step 3a): show a summary of the plan in at most ten lines, the path of `02-plan.md`, the parts table and everything listed under `Not covered`, and say that the exact word `approve` also allows local commits in the task worktrees and, when the plan has batches, the pushes and pull requests of the batches into the task branch. Anything else than `approve` or `cancel` is feedback; a bare "ok" or "yes" is not approval.
 
 **4b. After approval.** This step is safe to repeat. It is also where a session starts that holds the approved plan but not this conversation: the first line of the plan points here. A plan whose first line names a revision is not a first approval: follow "Changing the plan later" below instead.
 
 1. Cut the plan into files: `node "$AI_CONFIGS_DIR/scripts/split-plan.mjs" <plan file> <task dir>`. It copies the plan to `<task dir>/02-plan.md` and writes `02-plan/common.md`, one `02-plan/part-<n>.md` per card, `documentation.md`, `acceptance.md` and `qa-scenarios.md`. Compare the number of parts it prints with the parts table. If it reports an error or a missing section, correct the headings in the plan file and run it again. Never retype a section by hand.
 2. Append the questions and answers of the planning stage to `## Clarifications` of `01-context.md`, in English: the documentation and QA agents read them there.
-3. Update `state.md`: the revision and the time of the approval, the repositories table, the parts table with every part `pending`, the stage `worktrees`.
+3. Update `state.md`: the revision and the time of the approval, the repositories table, the parts table with every part `pending`, the batches table when the plan has batches, the stage `worktrees`.
 4. Measure your context (rule 13).
 
 **Changing the plan later.** A correction that changes neither scope nor behaviour (a path, a missing import, a step made clearer) you make directly in the card under `02-plan/` and note in the log of `state.md`. A change of scope or behaviour goes through the gate again, at a moment when no agent is running and everything is committed (the end of a wave): in plan mode you can neither commit nor update `state.md`.
 
-1. Enter plan mode and write a plan that holds the reason and the changed and new cards only, with new part numbers continuing the old ones. Its first line is the marker of the run with the revision added: `> implement-run: <key> · revision <n> · task directory: <absolute path> · session directory: <absolute path>. If you hold this plan without the /implement instructions, read <session directory>/.claude/commands/implement.md and carry out "Changing the plan later" of Step 4 from point 2.`
+1. Enter plan mode and write a plan that holds the reason and the changed and new cards only, with new part numbers continuing the old ones. In a run with batches it also holds the rows of the parts table for those parts, with their batches, and the lines of the delivery section that change: the person approves the new pushes with it. Its first line is the marker of the run with the revision added: `> implement-run: <key> · revision <n> · task directory: <absolute path> · session directory: <absolute path>. If you hold this plan without the /implement instructions, read <session directory>/.claude/commands/implement.md and carry out "Changing the plan later" of Step 4 from point 2.`
 2. After the approval, cut it with `node "$AI_CONFIGS_DIR/scripts/split-plan.mjs" <plan file> <task dir> --revision <n>`, which writes the cards of the revision and leaves every other file as it is.
-3. In `state.md` record the revision, add the new parts as `pending`, and set a changed part that was already built back to `pending`. Leave every other part as it is.
+3. In `state.md` record the revision, add the new parts as `pending`, and set a changed part that was already built back to `pending`. Leave every other part as it is. In a run with batches a new or changed part goes into a batch that is not delivered yet, or into a new one: a batch whose pull request is open or merged is not reopened.
 
 ## Step 5. Create the worktrees
 
@@ -288,7 +304,7 @@ git -C <main checkout> worktree add --no-track -b <branch> <worktree directory> 
 - Copy untracked environment files (`.env`, `.env.*`) from the root of the main checkout into the worktree. Do not print their contents.
 - If an install fails, show the error and ask the person how to proceed.
 
-Record the worktrees in `state.md`.
+Record the worktrees in `state.md`, each with the commit it starts from (`git -C <worktree> merge-base HEAD origin/<base>`, which is right for a reused worktree too): in a repository delivered in batches the task branch is later pushed from that commit.
 
 ## Step 6. The application and the baseline
 
@@ -307,7 +323,7 @@ Test users come from the `test_users` key of `.claude/settings.local.json` in th
 
 ## Step 7. Build the parts, wave by wave
 
-The parts and their waves come from the approved plan. All parts of a repository are built in its one task worktree. For each wave, in order:
+The parts, their waves and their batches come from the approved plan. All parts of a repository are built in its one task worktree. For each wave, in order:
 
 **a. In Development (epic run).** Move every story that has a part in this wave to In Development, with the same rules as in Step 2.
 
@@ -373,7 +389,7 @@ A part that needs a new native build of the mobile application cannot be checked
 
 **f. The end of a wave.** When every part of the wave is committed and no implementer is running:
 
-1. Run the fix rounds that waited for this moment (d, g), in parallel where they belong to different parts.
+1. Run the fix rounds that waited for this moment (d, g). Rounds of parts that share no file may run at the same time. Parts of different waves can own the same file, and a granted file counts too: their rounds go one after another.
 2. `git -C <worktree> status --short` has to be empty. A file that is left belongs to some part: find the part by its card, and resume its implementer to account for it. Never stage a file blindly, and never stage `.env` files, credentials or anything from the task directory.
 3. **The wave check.** Run the full check of `common.md` (type check, lint, all tests) in every changed worktree, with the output sent to `<task dir>/checks/wave-<w>.log` and only the summary shown. While it runs, launch and resume nothing that edits. A failure that the baseline already had does not count.
 4. A red check goes to a wave fixer, a new `task-implementer`:
@@ -393,7 +409,7 @@ A part that needs a new native build of the mobile application cannot be checked
    Commit its change, have it reviewed by a new `task-reviewer` (`Mode: change-review, wave <w> fix <k>`, with the wave fixer's report in place of a card and the review written to `04-review/wave-<w>-fix-<k>.md`), and run the check again. After two attempts that leave it red, ask the person.
 5. With the check green, run the UI checks that are still open, one at a time: the application is in its best state now. An implementer that cannot be resumed is replaced by a new `task-implementer` with `Mode: ui-check` and the prompt of (b). If one of them changed code, commit it and run the check again.
 6. Measure your context (rule 13) and update `state.md`. Above the threshold of rule 13, let the running reviews and their fix rounds finish first, and then ask.
-7. Before the next wave starts, every part that one of its parts names under `Starts after review of` has to be approved. Wait for those reviews and run their fix rounds now, while nothing is being built: left to wait for the end of the wave that needs them, they would never run. Then start the next wave. The other reviews of this wave go on in the background.
+7. If this wave is the last one of its batch, nothing more is built until the batch is delivered: go to "Batches" below. Otherwise, before the next wave starts, every part that one of its parts names under `Starts after review of` has to be approved. Wait for those reviews and run their fix rounds now, while nothing is being built: left to wait for the end of the wave that needs them, they would never run. Then start the next wave. The other reviews of this wave go on in the background.
 
 **g. Review across the parts of a wave.** Parts of one wave were written without seeing each other. For a wave of two or more parts, once all of them are approved, launch a new `task-reviewer`:
 
@@ -408,13 +424,38 @@ Change to review: commits <hashes> in <repo>: <worktree directory> (rules: <main
 
 Its findings wait for the next end of a wave (f.1) and go to a wave fixer as in f.4, with "What to fix: the findings of `<task dir>/04-review/wave-<w>.md`".
 
-**h. After the last wave** everything has to be settled before documentation and QA: every part approved or accepted by the person, every review across parts done, no fix round waiting, the tree clean and the check green. If anything was changed after the last check, go through the end of a wave once more.
+**h. After the last wave** everything has to be settled before the second review, documentation and QA: every part approved or accepted by the person, every review across parts done, no fix round waiting, the tree clean and the check green. If anything was changed after the last check, go through the end of a wave once more. In a run with batches the last batch is delivered at this point ("Batches" below), so the second review reads code that the bot and the person have already seen.
+
+**i. The second review.** Every part was reviewed by one model. Before documentation and QA, the whole branch is read once by another one. Skip this, and say so in the summary, when Codex is not used in this run (rule 16).
+
+For every code repository with commits, start in the background:
+
+```bash
+node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" review --repo <worktree> --base origin/<base> --rules <main checkout> --plan <task dir>/02-plan.md --out <task dir>/04-review/codex-<repo>.md
+```
+
+It prints `status`, the number of findings and the file.
+
+- `done` with no findings → that repository is finished.
+- Findings, or `status: unparsed` → a new `task-reviewer`:
+
+  ```text
+  Mode: external-triage
+  Findings to triage: <task dir>/04-review/codex-<repo>.md
+  Triage file to write: <task dir>/04-review/codex-<repo>.triage.md
+  Common file: <task dir>/02-plan/common.md
+  Cards (open only the card of the part a finding touches): <task dir>/02-plan/
+  Worktree: <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
+  ```
+
+  `ask-user` items go to the person, and the answer turns each into `fix` or `dismiss`. For the `fix` items launch one `task-implementer` for the repository with `Mode: fix`, "What to fix: the findings marked `fix` in `<triage file>`", the report `<task dir>/03-implementation/second-review-<repo>.md` and the other lines of the wave fixer's prompt (f.4). Commit its change under the story ID alone ("Commits"), and resume the triage reviewer: "Mode: fix-verification. Fix commit: `<hash>`. Review file to write: `<task dir>/04-review/second-review-<repo>.md`." When it requests changes, follow the fix loop of (d). Then run the check of (f.3) again. Codex is not run a second time.
+- `failed` → rule 16.
 
 ### Commits
 
 Before the first commit of the run, read the project's commit command once: `.claude/commands/commit.md` of the target project, or of the session directory when the project has none. Its rules for the message are the rules here. Do not restate them from memory, and do not copy the style of earlier commits in the branch. How its steps apply in this pipeline:
 
-- **Format.** Exactly what the command prescribes. The task number is the story ID with the part as the subtask: `<story ID>/<part number>`. A commit that covers several parts (a wave fix) lists them: `<story ID>/<n>,<m>`. Documentation, and a fix round for QA or review bot findings, are committed under the story ID alone, or the epic ID for the documentation of an epic. For a part that covers several stories, use the first story's ID and name the others in the description without the `sc-` prefix.
+- **Format.** Exactly what the command prescribes. The task number is the story ID with the part as the subtask: `<story ID>/<part number>`. A commit that covers several parts (a wave fix) lists them: `<story ID>/<n>,<m>`. Documentation, and a fix round for the second review, QA or review bot findings, are committed under the story ID alone, or the epic ID for the documentation of an epic. For a part that covers several stories, use the first story's ID and name the others in the description without the `sc-` prefix.
 - **Description.** What changed, as the command prescribes. A fix commit also says what changed ("align the rank badge with the ElementsBox rule"), never that a review was addressed.
 - **One logical change.** A commit holds the files of one part, or of one fix round.
 - **No trailer lines**, as the command says, whatever a default of the session suggests.
@@ -429,32 +470,91 @@ git -C <worktree> commit -m "<message>" -- <paths>
 
 Record the hash in `state.md`.
 
+### Batches
+
+A run whose plan has batches (Step 3e) is delivered one batch at a time: the batch is built, the review bot reads its pull request, what the bot finds is fixed in that same pull request, the person reviews and merges it, and only then is the next batch built. The bot's reviews are spread over the run instead of queuing at its end, the person reads pull requests of a size that can be read, and every batch is built on code the person has accepted.
+
+In a repository with batches the branch of the worktree is the task branch. You never push it: on the remote it moves only when the person merges a batch into it. Do not merge the base branch into the working branch on your own. When the person asks for it, say that those changes will show in the pull request of the next batch, and make the merge if they still want it.
+
+Set the stage in `state.md` to `batch <b>`, and keep the batch's row of the `Batches` table at the step it has reached: a new session continues from that row.
+
+**1. Settle the batch.** A pull request holds code that is finished. After the end of the batch's last wave (f), wait for what otherwise runs in the background while the next wave is built: every part of the batch approved or accepted by the person, the review across parts done for each of its waves (g), and the fix rounds these produce run now, as in f.1. Then repeat f.2 and f.3: the tree has to be clean and the check green before anything is pushed.
+
+**2. Push and open the pull request,** in every repository with batches that the batch changed. A batch that changed none of them has no pull request and nothing to wait for: go on with the next batch.
+
+```bash
+# before the first batch of this repository only: the task branch starts at the commit the worktree started from
+git -C <worktree> push origin <start commit>:refs/heads/<task branch>
+git -C <worktree> push origin HEAD:refs/heads/<batch branch>
+cd <worktree> && gh pr create --base <task branch> --head <batch branch> --title "<title>" --body-file <file>
+```
+
+- Write the start commit into the command as the hash from the `Repositories` table, not as a shell variable: zsh reads `$name:r…` as a modifier and breaks the refspec.
+- The batch branch is `sc-<story ID>/<parts>-<short-slug>`: the story of the batch's first part and its part numbers, for example `sc-45123/4-6-report-sections`.
+- The title is `<story ID>/<parts>: <short description>`, with the parts written the way the commit rules write several of them. The description says what the batch delivers, part by part, which batch of how many it is, and how it was checked. The rule of Step 10 about `sc-<id>` mentions holds here too.
+- Write the pull request into the `Batches` table and at the top of `07-pr.md`.
+
+**3. The bot's rounds.** Go through Step 11 for this pull request. Its fixes are committed on the working branch and pushed to the batch branch with the same `git push origin HEAD:refs/heads/<batch branch>`, so the pull request shows the chain of fixes. A push that is refused because the batch branch holds commits you do not have means the person committed to the pull request: fetch the batch branch, merge it into the working branch, and push again.
+
+**4. Tell the person.** When a round ends with nothing left to fix and every reply posted, the pull request is ready for the person. Say so in one short message, in the person's language: the link, how many of the bot's comments were fixed and how many were answered without a change, anything left open, and the state of the pull request's checks (`gh pr checks <number>`). A failing check is named there, with the question whether to fix it. If the session has a `PushNotification` tool, send the same line through it: the person may be away.
+
+**5. Wait for the person.** Start a background shell loop that looks at the pull request every two minutes and ends when it is merged or closed, or when it has a review or a comment that is newer than your message and comes from neither the bot nor an integration. It may run for many hours: start it again when it ends on its own limit. Build nothing meanwhile.
+
+- **The person commented,** on the pull request or in the session. These are instructions, not claims to weigh, so there is no triage. Copy them into `07-pr.md` under a new `## Round <n>` with IDs `P<n>.<k>`. Answer a question in its thread; ask the person in the session when a comment can be read two ways. For the rest, launch the fixer as item 2 of "Act on the triage" in Step 11 says, with "What to fix: the person's review comments `P<n>.<k>` of round `<n>` in `<task dir>/07-pr.md`. They are instructions of the person, not claims to weigh", and commit its change. No reviewer made a triage in this round, so the commit is reviewed by a new `task-reviewer` the way a wave fix is (f.4): `Mode: change-review, pull request round <n>`, with the fixer's report `<task dir>/03-implementation/pr-round-<n>.md` in place of a card and the review written to `<task dir>/04-review/pr-round-<n>.md`, and with the fix loop of (d). Then go on as items 3 to 5 say. The push is read by the bot as one more round (3), and then the person is told again (4).
+- **Merged.** Bring the working branch up to the task branch:
+
+  ```bash
+  git -C <worktree> fetch origin <task branch>
+  git -C <worktree> merge --ff-only origin/<task branch>
+  ```
+
+  A fast-forward is refused when the person squashed the pull request. Then make an ordinary merge of `origin/<task branch>`, with a message by the commit rules: both sides hold the same files, so it does not conflict. If it does, stop and show the person. Record the merge in the `Batches` table, measure your context (rule 13: nothing is running and everything is merged, so this is the best moment to hand the run over), and start the first wave of the next batch. After the last batch of the plan, go on with the second review (i); after the finish batch, with Step 10.
+- **Closed without a merge.** Ask the person what it means for the run.
+
+**The finish batch.** The second review, QA and the fix rounds of Step 9 can change the code after the last batch was merged. Whether they did is one comparison, made after a fetch: `git -C <worktree> diff --quiet origin/<task branch> HEAD`. Compare the files, not the commits: after a squashed pull request the commits differ while the files are the same. With a difference, the change is delivered at the end of Step 9 as one more batch, through steps 2 to 5: its number in the `Batches` table and in the stage is `finish` (`batch finish`), its branch is `sc-<story ID>/finish-<short-slug>`, and its title is `<story ID>: <short description>`, with the story ID the fix commits carry. Without a difference there is no finish batch. The finish batch is not followed by another second review.
+
 ## Step 8. Documentation and the first QA pass
 
 Skip documentation, and say so in the summary, when the workspace has no documentation repository. QA then runs its `acceptance` pass alone: its findings are handled as Step 9c says, and Steps 9a.3 and 9b are skipped. Skip QA when no application is available.
 
-**Which scheme.** Documentation and QA run at the same time only when each has a browser for itself: the application is a web application, `task-docs` uses the browser of its own, and `task-qa` holds the shared one (rule 15). When the task changes the mobile application, there is one device for both, so they run one after the other: `task-docs` in `write` mode with the device, then `task-qa` in `full` mode, and its findings are handled as Step 9 says for the run of the test cases.
+The documentation is written by a fork of this session and QA is run by Codex, each with a browser for itself, so for a web application the two start together. When the task changes the mobile application there is one device for both: the documentation is written first, with the device, and QA follows in `full` mode, with its findings handled as Step 9c says.
 
-Launch both in one message. `task-docs`:
+**a. Documentation.** You already hold what the feature is and why it was built this way. A fork inherits that, and the prompt cache, and writes in a context of its own. Measure your context first (rule 13): a fork pays for all of it on every turn it takes.
 
-```text
-Mode: write
-Task key: <key>
-Context file: <task dir>/01-context.md
-Plan, documentation: <task dir>/02-plan/documentation.md
-Common file: <task dir>/02-plan/common.md
-Implementation reports, one per part or fix: <task dir>/03-implementation/
-Reviews: <task dir>/04-review/
-Documentation worktree: <worktree directory>
-Code worktrees (read only):
-- <repo>: <worktree directory>
-Report to write: <task dir>/05-docs.md
-UI tool: own-browser | shared-browser | mobile-device <device ID> | none
-Application: <URL, or how the mobile application is opened> | not available
-Test users: <settings file path>, key test_users
-```
+- Up to about 200K tokens, start the fork: the Agent tool with `subagent_type: "fork"` and this prompt.
 
-`task-qa`:
+  ```text
+  You are a fork of the orchestrator, started to write the documentation of this task. From here on you are the documentation writer, not the orchestrator.
+
+  Your instructions are the body of <session dir>/.claude/agents/task-docs.md: read that file and work in its Mode: write. Where that file disagrees with the orchestration rules earlier in this conversation, the file wins. Where it disagrees with this prompt, this prompt wins.
+  You know the feature from this conversation. What you do not hold, read from the paths below. The code as it was built you read yourself.
+  Do not launch agents. Do not commit, and run no git command that writes. Do not touch state.md. Do not write to Shortcut. Do not ask the person anything: a question goes into your final message with status: open-questions. Ignore notifications about other agents.
+  After about a hundred tool calls, finish the document you are on, run the validation, write the report with what remains, and return status: partial.
+
+  Mode: write
+  Task key: <key>
+  Context file: <task dir>/01-context.md
+  Plan, documentation: <task dir>/02-plan/documentation.md
+  Plan, for the decisions of the planning stage: <task dir>/02-plan.md
+  Common file: <task dir>/02-plan/common.md
+  Implementation reports, one per part or fix: <task dir>/03-implementation/
+  Reviews: <task dir>/04-review/
+  Documentation worktree: <worktree directory>
+  Code worktrees (read only):
+  - <repo>: <worktree directory>
+  Report to write: <task dir>/05-docs.md
+  UI tool: shared-browser | mobile-device <device ID> | none
+  Application: <URL, or how the mobile application is opened> | not available
+  Test users: <settings file path>, key test_users
+  ```
+
+  The fork holds the UI tool while it runs (rule 15).
+- Above that size, or when a fork cannot be started, launch `task-docs` with the lines from `Mode: write` down.
+- A fork is not resumed. On `partial`, start another one with the same prompt and "Continue from the report: `<task dir>/05-docs.md`". On `open-questions`, ask the person (rule 5) and start another one the same way. On `blocked`, or on a second `partial`, go on with `task-docs` instead, which can be resumed, with "Continue from the report".
+
+When the documentation is written, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md` ("Commits" in Step 7). Then run `git -C <worktree> status --short`: a change that is left over is checked against the `Documents` tables of every round with a targeted search and staged when it is listed there; anything still unexplained is shown to the person, not committed.
+
+**b. QA.** A QA run is a Codex process in the background. Write its inputs to `<task dir>/qa/inputs-<mode>-<r>.md`:
 
 ```text
 Mode: acceptance
@@ -465,44 +565,58 @@ Plan, QA scenarios: <task dir>/02-plan/qa-scenarios.md
 Implementation reports, one per part or fix: <task dir>/03-implementation/
 Documentation report: not written yet
 Documentation worktree: not written yet
-UI tool: shared-browser | mobile-device <device ID>
+UI tool: own-browser | mobile-device <device ID>
 Application: <URL, or how the mobile application is opened>
-Test users: <settings file path>, key test_users
+Test users: given by the runner at the end of these inputs
 Report to write: <task dir>/06-qa.md
 Screenshots directory: <task dir>/qa/
 ```
 
-In `full` mode the two documentation lines give `<task dir>/05-docs.md` and the documentation worktree.
+and start it:
 
-If `task-docs` returns `blocked` because its own browser did not start, launch it again with `UI tool: shared-browser` once `task-qa` has returned the tool, and run the two one after the other from then on.
+```bash
+node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" qa --task-dir <task dir> --inputs <inputs file> --agent <session dir>/.claude/agents/task-qa.md --run <mode>-<r> --ui browser|mobile --test-users <settings file path> --watch <code worktree>
+```
 
-When `task-docs` finishes, commit in the documentation worktree exactly the files listed in the `Documents` table of `05-docs.md` ("Commits" in Step 7). Then run `git -C <worktree> status --short`: a change that is left over is checked against the `Documents` tables of every round with a targeted search and staged when it is listed there; anything still unexplained is shown to the person, not committed.
+The script hands Codex only the `test_users` of the settings file, never the path of that file, and removes their passwords from its log afterwards. Give one `--watch` for every code worktree. Codex can write only inside the task directory, and the script fails a run during which a watched worktree changed, so start no fix round while QA runs. In `full` and `cases` mode the two documentation lines give `<task dir>/05-docs.md` and the documentation worktree.
+
+The script prints `status`, `verdict`, the counts, one line for every finding and the path of the report. That block is all you read:
+
+- `done` → go on by the verdict (Step 9).
+- `partial` → the run ended before its list did; a `reason` line is there when the process was cut off. Start a new run with a new `--run` name and "Continue from the report" added to the inputs. After two runs in a row that were cut off, show the person the reason and ask as rule 16 says.
+- `open-questions` → ask the person (rule 5), then start a new run that continues from the report, with this line added to the inputs: "Answers to your questions: `## Clarifications` of the context file. Settle the items they concern first."
+- `blocked` → the `summary` line says what is missing. Rule 11, then a new run.
+- `failed` → rule 16: try again, do QA with `task-qa`, or skip QA.
+
+**With `task-qa` instead of Codex** (rule 16). It works in the browser of the session, so it starts only after the documentation is committed and its writer has returned the UI tool. Launch it with the mode of the run it replaces (`full` when no pass has been run yet), the lines above with `Test users: <settings file path>, key test_users`, `UI tool: shared-browser` or the mobile device, and the documentation lines filled in. The findings of a `full` run are handled as Step 9c says.
 
 ## Step 9. Fix rounds and the run of the test cases
 
-**a. Findings of the first pass.** `BUG` findings of the `acceptance` pass start fix round 1, but only after `task-docs`, when it runs, has finished writing: it describes the code as it is, and a fix made under it leaves the document describing something else.
+**a. Findings of the first pass.** `BUG` findings of the `acceptance` pass start fix round 1, but only after the documentation writer, when there is one, has finished: it describes the code as it is, and a fix made under it leaves the document describing something else.
 
 1. Launch a new `task-implementer` with `Mode: fix`, "What to fix: the `BUG` findings of round `<r>` in `<task dir>/06-qa.md`", the report `<task dir>/03-implementation/qa-round-<r>.md` and the other lines of the wave fixer's prompt (Step 7f). The fix is checked in the application by the next QA run, not by the fixer.
 2. Commit, and have the commit reviewed by a new `task-reviewer` in `change-review` mode, writing `<task dir>/04-review/qa-round-<r>.md`, with the fix loop of Step 7d.
-3. Always launch a new `task-docs` with `Mode: sync`, the paths of Step 8, the finding IDs in `06-qa.md` and the report of the fix round: the document and the test cases were written from the code before the fix and may describe the defect as the behaviour. Commit its changes.
+3. Always launch a new `task-docs` with `Mode: sync`, the lines of Step 8a from `Task key` down, the finding IDs in `06-qa.md` and the report of the fix round: the document and the test cases were written from the code before the fix and may describe the defect as the behaviour. Commit its changes.
 
-**b. The run of the test cases.** When the documentation is committed, launch a new `task-qa` with `Mode: cases`, the prompt of Step 8 with the documentation report and worktree filled in, and "Items to rerun: `<the BUG findings fixed in a>`". It executes the written cases as they are written, so a wrongly worded case comes back as a `DOC` finding.
+**b. The run of the test cases.** When the documentation is committed, start a new QA run (Step 8b) with `Mode: cases`, the documentation report and worktree filled in, and "Items to rerun: `<the BUG findings fixed in a>`". It executes the written cases as they are written, so a wrongly worded case comes back as a `DOC` finding.
 
 **c. Findings of that run.** A verdict of `PASS` leads to Step 10. Otherwise:
 
 1. **`BUG` findings.** A fix round as in (a.1) and (a.2).
-2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, launch a new `task-docs` with `Mode: sync`, the paths of Step 8, the finding IDs and the report of the fix round. Commit its changes.
-3. **Retest.** Launch a new `task-qa` with `Mode: retest`, the same paths, and the items to rerun: the failed ones and the ones next to the changed code.
+2. **Documentation.** If there are `DOC` findings, or a fix changed behaviour that the documentation describes, launch a new `task-docs` with `Mode: sync`, the lines of Step 8a from `Task key` down, the finding IDs and the report of the fix round. Commit its changes.
+3. **Retest.** Start a new QA run (Step 8b) with `Mode: retest`, the same lines, and the items to rerun: the failed ones and the ones next to the changed code.
 
-`OUT` findings (a defect that exists without this task's change, or a cause in the backend) do not start a fix round: record them as open items and show them at the PR gate. A `task-qa` that returns `status: partial` has items left: launch a new one with the same prompt and "Continue from the report" (rule 4).
+`OUT` findings (a defect that exists without this task's change, or a cause in the backend) do not start a fix round: record them as open items and show them at the PR gate. A QA run that ends `partial` has items left: start a new one as Step 8b says.
 
 After two fix rounds that still end in `FAIL`, ask the person with AskUserQuestion: run another round, accept with the remaining findings as open items, or stop. `BLOCKED` items do not start a fix round; they are reported at the PR gate.
+
+**d. The finish batch.** In a run with batches, the commits made since the last batch was merged are delivered now, before the PR gate (Step 7, "Batches").
 
 ## Step 10. PR gate
 
 Skip Steps 10 and 11 when `gh` is not available, and list the manual steps in the summary.
 
-Before the gate, state plainly anything that is not clean: a part accepted with open review findings, a UI check that could not run, QA skipped or accepted with findings, `OUT` findings, `BLOCKED` QA items, pending documentation.
+Before the gate, state plainly anything that is not clean: a part accepted with open review findings, a UI check that could not run, the second review skipped or with findings left to the person, QA skipped or accepted with findings, `OUT` findings, `BLOCKED` QA items, pending documentation.
 
 For every worktree with commits, show:
 
@@ -511,6 +625,8 @@ For every worktree with commits, show:
 - the pull request title: `<task number>: <short description>`
 - the pull request description: a summary of the change, the stories it implements, how it was tested, and a link to the documentation pull request
 - the target branch: the base branch of that worktree
+
+**A repository with batches** has nothing left to push: every batch, the finish batch included, is merged into the task branch, and the working branch holds the same files as `origin/<task branch>` (the comparison of "The finish batch" in Step 7). If it does not, deliver the finish batch first (Step 9d). Show the batches with their pull requests, the size of the task branch against the base, and the final pull request: the task branch into the base branch, with the title and the description as above and links to the batches. Its description ends with the line `@coderabbitai ignore`: every commit in it was reviewed in a batch, and one more review of the whole would spend the bot's quota on code it has read.
 
 Mention only the stories of this run with the `sc-<id>` form, in the branch name, title and description. The Shortcut integration links a pull request to every story mentioned that way and moves its state, so a related story from outside this run is named without the prefix and without a link.
 
@@ -523,6 +639,8 @@ Ask: `yes / no / edit`.
   cd <worktree> && gh pr create --base <base> --head <branch> --title "<title>" --body-file <file>
   ```
 
+  For a repository with batches skip the push and open the final pull request with `--head <task branch>`.
+
   Record the pull request URLs in `state.md` and at the top of `07-pr.md`.
 - **`edit`** → change the title or description as asked and show the gate again.
 - **`no`** → skip to Step 12 and list the manual steps there.
@@ -530,14 +648,18 @@ Ask: `yes / no / edit`.
 
 ## Step 11. Review bot
 
-The repositories use an automated reviewer (CodeRabbit). Handle each pull request the same way.
+The repositories use an automated reviewer (CodeRabbit). Every pull request of the run goes through these rounds: a batch as soon as it is opened (Step 7, "Batches"), the others after the PR gate. The final pull request of a repository with batches is the exception: it carries `@coderabbitai ignore` and has no rounds.
+
+The bot gives each developer a limited number of reviews per hour, and every review counts: the first one of a pull request, and one more for every push to it. So the fixes of a round are pushed once, and nothing asks the bot to read the same code twice.
+
+**Start the review.** On a pull request into a base branch the bot starts by itself. On a pull request into a task branch it does not: post `@coderabbitai review` with `gh pr comment` right after you open it, and again after every push to it. Never post `@coderabbitai full review`: it spends a review on code the bot has already read.
 
 **Wait for the review.** Start a background shell loop that checks the pull request once a minute for up to 15 minutes and exits as soon as the bot has submitted a review newer than your last push, or has commented that it found nothing or hit a rate limit. Use `gh pr view <number> --json reviews,comments` for the check. Do not poll from the conversation; wait for the loop to finish.
 
-- No bot activity after the wait: post one comment `@coderabbitai review` with `gh pr comment`, and wait once more. If there is still nothing, note it for the summary and move on.
-- A rate limit notice: tell the person, including the time the bot gives, and wait for their decision.
+- No bot activity after the wait: post one comment `@coderabbitai review` with `gh pr comment`, and wait once more. If there is still nothing, note it for the summary, say so when you tell the person about a batch, and move on.
+- A rate limit notice: the bot says how long to wait. Tell the person in one line, wait that long in a background shell command, then post `@coderabbitai review` and wait for the review again. Ask the person what to do only when the bot asks for more than an hour, or when the notice comes a third time on one pull request.
 
-**Collect.** Fetch the unresolved review threads (GraphQL `reviewThreads` with `isResolved`, path, line and comment bodies) and the actionable remarks in the review body. Write them verbatim into `07-pr.md` under `## Round <n>`, each with an ID `C<n>.<k>`, the pull request, the file and the line. If there is nothing actionable, this pull request is done.
+**Collect.** Fetch the unresolved review threads that the bot opened (GraphQL `reviewThreads` with `isResolved`, the author of the first comment, path, line and comment bodies) and the actionable remarks in the bot's review body. `gh` runs under the person's account, so a thread the person opened is not told apart from yours by its author: leave every thread the bot did not open to step 5 of "Batches". Write the bot's comments verbatim into `07-pr.md` under `## Round <n>`, each with an ID `C<n>.<k>`, the pull request, the file and the line. `<n>` is one sequence for the whole run: every round of every pull request, the bot's and the person's, takes the next number, so that no section of `07-pr.md` and no `pr-round-<n>` file is written twice. If there is nothing actionable, the bot's rounds on this pull request are done: a batch goes on to step 4 of "Batches".
 
 **Triage.** Launch a new `task-reviewer` for the round:
 
@@ -555,20 +677,20 @@ Worktrees:
 
 1. `ask-user` items → AskUserQuestion; the answer turns each into `fix` or `reply`.
 2. `fix` items → launch a new `task-implementer` with `Mode: fix`, "What to fix: the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md`", the report `<task dir>/03-implementation/pr-round-<n>.md` and the other lines of the wave fixer's prompt (Step 7f). Commit its change locally, then resume this round's reviewer in `fix-verification` mode with that commit, writing `<task dir>/04-review/pr-round-<n>.md`.
-3. If a fix changed behaviour, rerun the affected cases with a new `task-qa` in `retest` mode and update the documentation with a new `task-docs` in `sync` mode.
-4. Push **once** per repository for the whole round, when its fixes are committed and verified. Every push starts another bot review and uses its quota, so never push fixes one at a time.
+3. If a fix changed behaviour, update the documentation with a new `task-docs` in `sync` mode, and then rerun the affected cases with a QA run in `retest` mode (Step 8b). A batch delivered before Step 8 has nothing to bring in line: the documentation and QA come later and see the fixed code.
+4. Push **once** per repository for the whole round, when its fixes are committed and verified and the check of Step 7f.3 is green again. Every push starts another bot review and uses its quota, so never push fixes one at a time.
 5. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`). Leave declined threads open for the bot or the person to close. Answer remarks from the review body in one pull request comment that mentions `@coderabbitai`.
 6. Record the replies and the commit in `07-pr.md`, then wait for the bot's next pass.
 
-After three rounds on one pull request, ask the person with AskUserQuestion whether to continue, stop with the remaining comments as open items, or handle them personally.
+After three rounds of the bot on one pull request (count that pull request's own rounds, not `<n>`), ask the person with AskUserQuestion whether to continue, stop with the remaining comments as open items, or handle them personally.
 
 ## Step 12. Summary
 
 Stop any development server you started. Set the stage in `state.md` to `done`. Then report, in the person's language:
 
 - what changed, per repository and per part;
-- the pull requests, with links;
-- the review outcome, the UI checks, the documentation written, the QA result, the bot rounds;
+- the pull requests, with links, the batches included;
+- the review outcome, the second review, the UI checks, the documentation written, the QA result, the bot rounds;
 - what to check by hand;
 - open items: backend dependencies, findings accepted or deferred, skipped steps, pending screenshots, test data left behind;
 - the worktree directories and branches.
@@ -596,22 +718,28 @@ Update it after every stage change, every agent launch and every commit.
 
 - Source: <URL>
 - Type: story | epic
-- Stage: context | planning | worktrees | wave <w> | docs-qa | pr-gate | pr-review | done | cancelled
+- Stage: context | planning | worktrees | wave <w> | batch <b> | second-review | docs-qa | pr-gate | pr-review | done | cancelled
 - Plan: revision <n>, approved <date and time> | not approved
 - Epic analysis: <readiness directory>, run <date>, brought up to date <date and time> | none
 - Application: <URL, or device and application ID> (started by the orchestrator: yes | no) | not available
 - UI tool: <shared-browser | mobile-device <ID>>, held by <agent and part> | free
 - Context: <last measurement, date and time>
+- Codex: ready | not used for <the second review, QA>, by the person's answer of <date and time>
 
 ## Repositories
-| Repository | Main checkout | Base | Worktree | Branch | Baseline check | Pull request |
+<Start commit: the commit the worktree was created from. Delivery: one pull request | batches>
+| Repository | Main checkout | Base | Start commit | Worktree | Branch | Delivery | Baseline check | Pull request |
 
 ## Parts
 <Status: pending | implementing | committed | fixing | approved | accepted with open findings | waiting for the person>
-| # | Wave | Story | Title | Status | Implementer ID | Reviewer ID | Review rounds | UI check | Commits |
+| # | Wave | Batch | Story | Title | Status | Implementer ID | Reviewer ID | Review rounds | UI check | Commits |
 
 ## Waves
 | Wave | Parts | Check | Review across parts | Fix attempts |
+
+## Batches
+<only in a run with batches. Status, by the steps of "Batches" in Step 7: planned | building | settling | bot rounds | waiting for the person (since <date and time>) | merged (<merge commit>)>
+| # | Waves | Repository | Batch branch | Files | Pull request | Bot rounds | Rounds for the person | Status |
 
 ## Waiting
 <fix rounds that wait for the end of the running wave; parts in the queue for the UI tool; `needs-file` requests and grants>
@@ -619,6 +747,10 @@ Update it after every stage change, every agent launch and every commit.
 ## Other agents
 <documentation, QA, wave fixers, fix rounds, bot rounds: one row per instance>
 | Role | Agent ID | Used for |
+
+## Finish
+<the steps after the last wave, one row each: the second review of every repository, the documentation, every QA run, every fix round>
+| Step | Done by (Codex, fork, agent, skipped) | Status | Notes |
 
 ## Rounds
 QA fix rounds: 0 · Bot rounds per pull request: 0
@@ -654,7 +786,10 @@ What the research found, what was decided and why, and the person's answers. Thi
 | Repository | Main checkout | Base ref | Worktree directory | Branch | Why it is touched |
 
 ## <Parts>
-| # | Wave | Story | Title | Goal in one line | Depends on | UI check | Files |
+| # | Wave | Batch | Story | Title | Goal in one line | Depends on | UI check | Files |
+
+## <Delivery>
+For every code repository: one pull request at the PR gate, or batches. With batches: the task branch, and for each batch its waves, its size in files and what it delivers. Say plainly that after each batch the run waits for the person to review and merge its pull request.
 
 ## <Tests>
 The coverage criterion, and each changed file deliberately left without tests, with the reason, or "None".
@@ -666,6 +801,7 @@ Endpoints or fields the frontend relies on, their status, and the fallback.
 
 ## <What the approval allows>
 Approving this plan allows worktrees, code changes and local commits in the task worktrees, made by the project's commit rules. Nothing is pushed before the PR gate.
+<With batches, write this instead of the last sentence:> It also allows pushing each batch, opening its pull request into the task branch `<branch>`, and pushing the fixes of that pull request. You review and merge every pull request yourself. Nothing reaches `<base>` before the PR gate.
 
 ## <Revision log>
 - r<n> (<date>): what changed and why

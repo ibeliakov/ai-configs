@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "verdict", "round", "counts", "findings", "summary", "open_questions"],
+  "properties": {
+    "status": { "type": "string", "enum": ["done", "partial", "open-questions", "blocked"] },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL", "none"] },
+    "round": { "type": "integer" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pass", "fail", "blocked", "not_run"],
+      "properties": {
+        "pass": { "type": "integer" },
+        "fail": { "type": "integer" },
+        "blocked": { "type": "integer" },
+        "not_run": { "type": "integer" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "severity", "title"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["BUG", "DOC", "ENV", "OUT"] },
+          "severity": { "type": "string", "enum": ["critical", "major", "minor"] },
+          "title": { "type": "string" }
+        }
+      }
+    },
+    "summary": { "type": "string" },
+    "open_questions": { "type": "array", "items": { "type": "string" } }
+  }
+}
