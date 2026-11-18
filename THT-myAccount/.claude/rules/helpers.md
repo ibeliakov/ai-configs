@@ -64,6 +64,8 @@ Date formatting and time zones. Server date-times (`LocalDateTime`, no offset) a
 |----------|---------|
 | `getTimeWithTimeZone(date)` | Server value → local `Dayjs`: no offset = UTC, an explicit `Z` / offset is kept, a date-only value stays on its day (parsed strictly — `2024-02-30` is invalid). Non-string input is passed through `dayjs()`. Used by the date-format hooks |
 | `parseServerDate(date)` | The string part of `getTimeWithTimeZone` |
+| `parseCalendarDate(date)` | A calendar day the back end stores as midnight (`2027-02-16T00:00:00`, `2027-02-16`, or with `Z`) → UTC-mode `Dayjs` on that same day in every browser zone; `undefined` when empty. Use it for day-only fields such as an employee's `next_review_date` — `getTimeWithTimeZone` reads that midnight as a UTC instant and shows the previous day west of UTC, and `dayjs(value).utc()` shows the previous day east of UTC |
+| `toCalendarDate(date)` | The local day of a picked or computed `Dayjs` → UTC midnight of that day, the value to send for a day-only field (`parseCalendarDate` reads it back as the same day). Unlike `convertUtcToLocalDate`, it does not depend on the time of day or on today's DST offset |
 | `getMonthDayYearFormatted(date)` | Format to "MMM DD, YYYY" |
 | `getFormattedDateDB(date)` | Format for DB storage (`YYYY-MM-DD`) |
 | `parseDateAnswer(value)` | A free-text answer (screening questions) → local `Dayjs` when it is exactly `YYYY-MM-DD` (same calendar day, impossible dates rejected) or a full ISO timestamp; `undefined` for anything else. Pass the result to `useDateFormat`'s `getFormattedDate` and fall back to the raw answer |
