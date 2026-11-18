@@ -6,13 +6,6 @@ effort: xhigh
 permissionMode: acceptEdits
 maxTurns: 80
 color: cyan
-mcpServers:
-  - docs-browser:
-      type: stdio
-      command: node
-      args:
-        - -e
-        - "const w=process.platform==='win32';require('child_process').spawn(w?'npx.cmd':'npx',['-y','@playwright/mcp@latest','--isolated','--headless'],{stdio:'inherit',shell:w}).on('exit',c=>process.exit(c??0))"
 disallowedTools:
   - Agent
   - Skill
@@ -67,8 +60,7 @@ Your cost per step grows with everything you have already read and done. After a
 
 Your prompt says what you look at the application with. Use that tool and no other.
 
-- `own-browser`: the `docs-browser` server, a browser that belongs to you alone. Load its tools in one ToolSearch call; their names start with `mcp__docs-browser__`. Another agent may be testing in the browser of the session at the same time, so never touch the `playwright` server. If the `docs-browser` tools cannot be loaded, stop and return `status: blocked` saying that your own browser is not available.
-- `shared-browser`: the `playwright` server of the session. Nobody else uses it while you run.
+- `shared-browser`: the `playwright` server of the session. Nobody else uses it while you run. Load its tools in one ToolSearch call.
 - `mobile-device <ID>`: the `mobile-mcp` server, for the mobile application; never a browser. Pass the device ID to every call (without an ID in your prompt, list the devices and take the one the application runs on). Open the application with the launch tool, read the screen from the list of elements, and take screenshots with the device tools.
 - `none`, or no application: do not invent screenshots; list them as pending in your report.
 
