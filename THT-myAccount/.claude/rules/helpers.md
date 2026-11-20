@@ -17,6 +17,7 @@ String and HTML processing. Most-used functions:
 | `encodeTextFromQuillInput(html)` | Quill rich text → plain text |
 | `addStylesToEmailMessage(html)` | Add inline CSS to email images/paragraphs |
 | `convertToSMS(html)` | Editor HTML → SMS text: paragraphs and `<br>` become `\n` (an empty paragraph is a blank line), tokens become shortcodes, `&nbsp;` a space. Emoji are kept |
+| `htmlToSmsText(html)` | Editor HTML → the text an SMS carries, tokens left as the editor shows them. The one place for SMS line rules: `convertToSMS` sends it (after turning tokens into shortcodes) and `SMSRules` measures the 306 limit on it, so both always agree |
 | `convertPlainTextToQuill(text)` | Plain text → editor paragraphs, one `<p>` per line. `QuillInput` with `multiline` already applies it to a plain-text `value` that has line breaks, so SMS composers pass the stored body as is |
 | `convertToEmailBody(html)` | Prepare HTML for email body with styles |
 | `convertToEmailBodyWithSignature(html, sig)` | Append signature |
