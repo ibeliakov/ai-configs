@@ -29,6 +29,8 @@ String and HTML processing. Most-used functions:
 | `toComparablePhone(phone)` | Digits-only key for comparing phone numbers in any format; a ten-digit number gets the US `1` (the back end's suppression canonicalisation) |
 | `toComparableEmail(email)` | Trimmed, lower-cased key for comparing email addresses the way the back end does |
 | `isRichTextEmpty(html)` | `true` for a missing value or editor markup with no visible text and no image, iframe or video (`<p><br></p>`, `<p>&nbsp;</p>`); the one emptiness check for Quill values |
+| `cleanInvisibleChars(value)` | Single-line text pasted from Word, a web page or an email → the same text without invisible characters: NBSP and every other space-like character (tab, line breaks, `\p{Zs}`) become a plain space, then control and format characters (`\p{Cc}`, `\p{Cf}`: zero-width space, BOM, soft hyphen, bidi marks) and the combining grapheme joiner U+034F are removed — except U+200D between two emoji, so a joined emoji (👩‍💻) stays one — and only then `&nbsp;` / `&#160;` / `&#xA0;` become a plain space, so an entity split by a hidden character is caught and a second pass changes nothing. Does not trim or collapse spaces, so it is safe as an AntD `Form.Item normalize` while the user types. `null` / `undefined` → `''` |
+| `normalizeSingleLineText(value)` | `cleanInvisibleChars` plus runs of spaces collapsed to one and a trim — the value to send and to load into a form. Used for the job post title (sc-24499) in every form that sends `jobpost_title`: put `normalize={cleanInvisibleChars}` on the field and send `normalizeSingleLineText(value)` |
 | `convertTextToNote(text, users)` | `AddNote` field text → the note that is sent: trimmed, `@full name email` mentions and `(::start old::)` mentions of former users turned into `<span data-id="ID">Name</span>`; the inverse of `convertNoteToText`. Measure note length on its result |
 
 ### `text.ts`
@@ -131,6 +133,11 @@ All project regex patterns — import from here, do not duplicate:
 | `salaryKeywordWithPeriodPayRegex` | "Rate: 48.37 per hour" patterns |
 | `dataImageUriRegexp` | An embedded `data:image/…` src anywhere in editor HTML (stateless, no `g`) |
 | `dataUriRegexp` | Mime type and base64 payload of one `data:` URI |
+| `nbspEntityRegexp` | The `&nbsp;`, `&#160;` and `&#xA0;` entities as literal text, any case |
+| `spaceLikeCharsRegexp` | Characters that look like a space or break a line: `\p{Zs}` (NBSP, thin and ideographic spaces), tab, CR, LF, VT, FF, NEL, U+2028, U+2029 |
+| `invisibleCharsRegexp` | Control and format characters (`\p{Cc}`, `\p{Cf}`) and the combining grapheme joiner U+034F |
+| `emojiBeforeJoinerRegexp`, `emojiAfterJoinerRegexp` | An emoji (with an optional U+FE0F or skin tone) right before / right after a zero-width joiner — how `cleanInvisibleChars` decides to keep U+200D |
+| `repeatedSpacesRegexp` | Two or more plain spaces in a row |
 
 ### `rulesFields.ts`
 AntD `Form` validation rule builders — **always use these instead of writing inline rules**.
