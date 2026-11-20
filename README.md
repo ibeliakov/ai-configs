@@ -12,7 +12,7 @@ ai-configs/
 │   ├── setup-windows.ps1     # hardlinks for Windows
 │   ├── split-plan.mjs        # /implement: cuts the approved plan into files
 │   ├── session-context.mjs   # /implement: prints the context size of the session
-│   └── codex-run.mjs         # /implement: second review and QA through Codex
+│   └── codex-run.mjs         # /implement: part reviews, second review and QA through Codex
 │
 ├── automation/               # Node.js scripts for AI-powered tooling
 │   └── src/
@@ -228,13 +228,13 @@ Keep `description` to one short line: the descriptions of all agents are loaded 
 | The approved plan is cut into files, without retyping | `scripts/split-plan.mjs` | `02-plan.md`, `02-plan/common.md`, `02-plan/part-<n>.md`, `02-plan/documentation.md`, `acceptance.md`, `qa-scenarios.md` |
 | Worktrees `<repo>-<id>` from the chosen base branch, the application started from the worktree, a baseline run of the checks | main session | `checks/baseline.log` |
 | Parts, wave by wave: up to three implementers at a time in one worktree, each building one part with its tests and a UI check | `task-implementer` (opus) | code, `03-implementation/part-<n>.md` |
-| Review of each part from its commit, with a fix loop, and a review across the parts of a wave | `task-reviewer` (fable) | `04-review/part-<n>.md`, `04-review/wave-<w>.md` |
-| In a large task, after each batch of waves: a pull request into the task branch, the review bot loop, then **your review and merge** before the next batch is built | main session, reviewer, implementer, you | `07-pr.md` |
-| Second review of the whole branch by another model, triaged the way bot comments are | Codex, `task-reviewer` (fable) | `04-review/codex-<repo>.md` and its `.triage.md` |
+| Review of each part from its commit, with a fix loop verified from the fix commit; a review across the parts of a wave | Codex; `task-reviewer` (fable) for the wave | `04-review/part-<n>.md`, `04-review/wave-<w>.md` |
+| In a large task, after each batch of waves: a pull request into the task branch, the review bot loop, then **your review and merge** before the next batch is built | main session, reviewer (fable for the triage, opus for the verification of the fixes), implementer, you | `07-pr.md` |
+| Second review of the whole branch, triaged the way bot comments are | Codex, `task-reviewer` (fable; opus verifies the fixes) | `04-review/codex-<repo>.md` and its `.triage.md` |
 | Documentation and test cases, at the same time as the first QA pass (acceptance criteria, unusual user actions) | a fork of the main session, Codex | `05-docs.md`, `06-qa.md` |
-| Run of the written test cases, and fix rounds | Codex, implementer, reviewer, `task-docs` | `06-qa.md` |
+| Run of the written test cases, and fix rounds | Codex, implementer, `task-docs` | `06-qa.md` |
 | **PR gate**: `yes / no / edit` | you | |
-| Pull requests and the review bot loop (CodeRabbit) | main session, reviewer, implementer | `07-pr.md` |
+| Pull requests and the review bot loop (CodeRabbit) | main session, reviewer (fable, opus), implementer | `07-pr.md` |
 | Summary and an optional Shortcut comment (`yes / no / edit`) | main session | |
 
 How it behaves:
@@ -242,12 +242,12 @@ How it behaves:
 - **Nothing is built before the plan is approved.** The command collects the context, enters plan mode itself, and plan mode blocks every write until you approve. If you decline plan mode, the plan is written to a file and the gate is the word `approve`.
 - **The plan is one file with two halves.** The first is for you, in your language: summary, scope, decisions and research findings, the table of parts, what is not covered by tests, risks. The second is for the agents, in English: a common section and one card per part. An implementer reads only the common section and its own card, so it starts with a few thousand tokens instead of the whole plan.
 - **Parts and waves.** A part is 3 to 10 files with their tests, sized to about forty tool calls. Parts of one wave do not depend on each other and share no file, so they are built at the same time; a file several parts would touch is given to one of them. When the page does not exist yet, the first wave builds a skeleton (types, API client, the page with fixture data), so that every later part is visible in the application the moment it is built.
-- **Commit, then review.** When an implementer is done, the main session commits the files of the part and the reviewer reads that commit. The next wave starts as soon as the whole wave is committed and the full check (type check, lint, all tests) is green, without waiting for the reviews. Fixes from a review are further commits. Parts of one wave are also reviewed together once, for duplication and mismatched contracts between them.
+- **Commit, then review.** When an implementer is done, the main session commits the files of the part and Codex reviews that commit (`scripts/codex-run.mjs review-part`): conformance to the card, contracts with other parts, acceptance criteria, correctness, the project's rules, the tests and the coverage criterion. Its findings go back to the implementer, the fix is a further commit, and Codex verifies it from that commit. The next wave starts as soon as the whole wave is committed and the full check (type check, lint, all tests) is green, without waiting for the reviews. Parts of one wave are also reviewed together once by the reviewer agent on Fable, for duplication and mismatched contracts between them. Without Codex the reviewer agent reviews the parts instead.
 - **UI check.** A part that changes what the user sees is checked by its own implementer in the running application, in about fifteen tool calls: in the browser for the web applications, on the simulator or emulator through `mobile-mcp` for the mobile application. The browser of the session and the device are shared, so implementers take turns; a check that cannot run while other parts are still being written is repeated when the wave is complete.
-- **Second review.** After the last wave the whole branch is read once more by Codex, with the project's rules and the plan at hand and without the history of the run. Its findings are triaged by the reviewer (fix, dismiss with a reason, or ask you), the same way review bot comments are, and the fixes are committed before documentation and QA start.
+- **Second review.** After the last wave the whole branch is read once more by Codex, with the project's rules and the plan at hand and without the history of the run. Its findings are triaged by the reviewer (fix, dismiss with a reason, or ask you), the same way review bot comments are, and the fixes are committed, verified by a new reviewer instance on Opus, before documentation and QA start.
 - **Documentation.** The first pass is written by a fork of the main session: it inherits what the main session knows about the feature, and its prompt cache, so nothing is learned twice. Above about 200K tokens of context a fork would cost too much per turn, and the `task-docs` agent writes instead. Later corrections (`sync`) are always done by `task-docs`.
 - **QA runs on Codex,** in a browser of its own, so for a web application the first pass (acceptance criteria, unusual user actions) runs next to the documentation. When the documentation is written, a second run executes the written test cases as they are written, so a wrongly worded case comes back as a finding. Codex follows the same instructions as the `task-qa` agent, can write only into the task directory, and writes its report as it goes, so a run that is cut off continues from the report. For the mobile application there is one device, so documentation is written first and QA runs after it.
-- **Without Codex.** When Codex is not installed, not logged in, or out of quota, the command asks you what to do: try again, skip the second review, run QA with the `task-qa` agent, or skip QA. The answer holds for the rest of the run.
+- **Without Codex.** When Codex is not installed, not logged in, or out of quota, the command asks you what to do: try again, have the parts reviewed by the `task-reviewer` agent, skip the second review, run QA with the `task-qa` agent, or skip QA. The answer holds for the rest of the run.
 - **The epic analysis is reused.** When `/epic-readiness` has been run for the epic (or for a story's parent epic), `/implement` does not collect the sources again. It reads what changed since the analysis (new comments, a new contract version, story states) and takes your decisions and the base branches from it. With the verdict `partly` it plans only the areas that can start now; what waits is shown in the plan. Without an analysis it recommends running `/epic-readiness` first and lets you choose to collect the context itself.
 - **A story** is read together with its parent epic: the epic's description, comments, documents and backend links go into the context as reference. Only the story itself is implemented.
 - **An epic** is planned as one plan over its frontend stories. Backend stories are included only when the extra instructions ask for them. Each repository gets one branch and, unless it is delivered in batches, one pull request.
@@ -256,12 +256,14 @@ How it behaves:
 - **Questions.** While planning, the main session asks you directly. A question from an agent that the approved plan already answers is answered from the plan; anything that needs a new decision comes to you.
 - **Changing the plan later.** A correction that changes neither scope nor behaviour is made in the card. A change of scope or behaviour goes through plan mode again, with the new and changed cards only.
 - **QA findings** go back to an implementer, the fix is reviewed, the documentation is brought in line, and QA reruns the affected items.
-- **Review bot comments** are triaged by the reviewer: fixed, or answered with a reason. Fixes are pushed once per round.
+- **Review bot comments** are triaged by the reviewer: fixed, or answered with a reason. Each fix commit is verified by a new reviewer instance on Opus before the push, and the fixes of a round are pushed once.
 - **Token use.** An agent reads its whole history again on every turn, so its cost grows roughly with the square of the number of steps it takes. The pipeline therefore keeps every context small:
   - a part is small, and its implementer and reviewer are new instances that read the common section and one card, not the context file or the whole plan;
   - an agent that runs long hands over: it returns `partial` with a list of what remains, and a fresh instance continues from the report;
   - a documentation `sync`, a QA `cases` run and a `retest` are new instances that read the earlier report;
   - agents get their environment (addresses, which API each application talks to, the device, test data notes) from the context file and stop early with `blocked` when it does not work, instead of working around it;
+  - a subagent's prompt cache lives about five minutes, so an agent is resumed only inside that window after it returned; later, a new instance continues from the files. Every agent command is kept under three minutes (tests of the agent's own files with a worker cap, a timeout on the call), the full check is run by the main session alone, and on macOS `caffeinate` keeps the machine awake for the run;
+  - when a request is stopped by a rate limit or a usage limit, the run pauses and waits for your `continue` instead of retrying into the limit;
   - the main session plans and orchestrates, so its context is the largest and it takes the most turns. It leaves the reading of code to research agents, does not reread reports, and measures itself with `scripts/session-context.mjs`: above about 150K tokens after the approval, or 200K at the end of a wave or after a batch, it offers a smaller context.
 
   For the same reason `/implement` is cheapest when it starts in a conversation with little history, and a long run is cheaper to continue with a smaller context. In both cases the command asks instead of stopping: compact the conversation with `/compact` (the conversation, its agents and their history stay), go to a new conversation and run `/implement` with the same ID there (the old conversation stays as it is), or carry on. The state is in files, so nothing is lost either way. The command never suggests `/clear`, which replaces the conversation and hides its agents and their reports. After a compaction, automatic ones included, the command's instructions come back cut short, and the main session reads `implement.md` and `state.md` again before it acts.
@@ -270,13 +272,14 @@ Models:
 
 | Who | Model | Effort |
 |---|---|---|
-| `task-reviewer` (every kind of review, triage of bot comments) | Fable | `high` |
+| `task-reviewer`: wave reviews, triage of bot comments and of the second review's findings | Fable | `high` |
+| `task-reviewer`: verification of the fixes of triaged findings | Opus | `high` |
 | Main session: planning and orchestration | Opus | `xhigh` |
 | `task-implementer`, `task-docs`, `task-qa` | Opus | `xhigh` |
 | Research agents in plan mode (`Explore`, `Plan`) and the documentation fork | Opus | as the session |
-| Codex: the second review and QA | the default of your Codex configuration | the same |
+| Codex: the review of every part and of its fixes, the second review and QA | the default of your Codex configuration | the same |
 
-The agents' models and effort are pinned in their frontmatter; to change them, edit the agent file. The main session is not pinned (a pin in a command's frontmatter lasts only until your next message), so the command checks the session's model and effort at the start and asks when they differ. The one exception among the agents is written into `/fix-bugs`, which launches `task-docs` and `task-qa` with `effort: high` for its bounded bug modes. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
+The agents' models and effort are pinned in their frontmatter; to change them, edit the agent file. The one override is the reviewer's verification mode, which the main session launches with `model: opus`. The main session is not pinned (a pin in a command's frontmatter lasts only until your next message), so the command checks the session's model and effort at the start and asks when they differ. The one exception among the agents is written into `/fix-bugs`, which launches `task-docs` and `task-qa` with `effort: high` for its bounded bug modes. A session running in `acceptEdits` or auto mode passes that mode to the subagents.
 
 Browsers and devices:
 
@@ -288,7 +291,7 @@ What it writes outside your machine:
 
 - **Shortcut:** moves the story to In Development when the command starts (for an epic, each story when its first part starts). This is automatic. The final comment is posted only after `yes`. Nothing else is written.
 - **Git:** local commits in the task worktrees are made automatically from the moment the plan is approved: one per part, and one per round of fixes. The message follows the project's `commit.md`, with the part as the subtask of the story (`<story>/<part>: <description>`) and without trailer lines; your approval of the plan stands in for the per-commit confirmation of `/commit`. Push and pull requests happen only after `yes` at the PR gate; after that, fixes for bot comments and replies in threads need no further confirmation. A plan with batches is the exception, and it says so under "What the approval allows": approving it also allows pushing each batch, opening its pull request into the task branch and pushing the fixes of that pull request. Nothing reaches a base branch before the PR gate. Pull requests are never merged by the command: you merge them.
-- **Codex:** the second review and QA send the code of the branch, the documentation and the test users of the local and staging applications to Codex (OpenAI). The test users are passed in the prompt; Codex is not given the path of the settings file, which also holds tokens, and it is told not to open files with secrets, though the sandbox lets it read any file. The log of a QA run stays in `.tasks/<key>/qa/` with the passwords removed. Production is never involved.
+- **Codex:** the part reviews, the second review and QA send the code of the branch, the documentation and the test users of the local and staging applications to Codex (OpenAI). The test users are passed in the prompt; Codex is not given the path of the settings file, which also holds tokens, and it is told not to open files with secrets, though the sandbox lets it read any file. The log of a QA run stays in `.tasks/<key>/qa/` with the passwords removed. Production is never involved.
 
 Artifacts live in `.tasks/<key>/` (`sc-<id>` or `epic-<id>`) inside the directory where the session was started, together with `state.md`, downloaded attachments, check logs and screenshots. All state passes between agents through these files, so a run can be continued in a new session. A run started by the previous version of the command (phases instead of parts) is continued as it is: each remaining phase is built as a wave of one part. When you start sessions inside a project repository, keep the directory out of git without touching the project:
 
@@ -303,7 +306,8 @@ Requirements:
 - the conversation has little history when the command is started; otherwise the command asks whether to go to a new conversation, compact this one, or carry on;
 - the session runs on Opus at `xhigh` effort, and accepts edits automatically: the documentation fork inherits the session's permission mode and would otherwise ask you about every file it writes;
 - `gh` is authenticated, otherwise the pull request stages are skipped and nothing is delivered in batches;
-- the Codex CLI is installed and logged in (`codex login`) for the second review and QA; without it the command asks whether to go on with `task-qa` and no second review;
+- the Codex CLI is installed and logged in (`codex login`) for the review of every part, the second review and QA; without it the command asks whether to go on with `task-reviewer`, `task-qa` and no second review;
+- on macOS, `caffeinate` (part of the system) keeps the machine from sleeping during a run; closing the lid still puts it to sleep;
 - `SHORTCUT_API_TOKEN` is set (see [Shortcut MCP setup](#shortcut-mcp-setup)); it is used to read attachments;
 - for the mobile application, a simulator or emulator with the application open, served from the task worktree;
 - test users for the local and staging applications are listed in the project's `.claude/settings.local.json`, so agents can log in without asking:

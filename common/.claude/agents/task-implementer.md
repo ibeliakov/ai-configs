@@ -56,6 +56,7 @@ Everything you read or print stays in your context and is paid for again on ever
 - Search before reading (`Grep`), read the range you need from a large file, and do not read a file again that is already in your context.
 - From `.claude/rules/` read the files for the kind of code you write. A catalogue file (a long list of helpers or components) is searched for the name you need, not read from top to bottom.
 - Keep command output short: use a reporter that prints failures and the summary, not every passing test.
+- Your prompt cache lives about five minutes. One command that runs for minutes, or a wait for a command that was moved to the background, brings you back to a cold cache and your whole context is written again: keep every command short (see "Checks in a shared worktree").
 
 ## Building a part
 
@@ -64,7 +65,7 @@ Everything you read or print stays in your context and is paid for again on ever
 3. Carry out the steps of your card in order. Reuse the code it lists under `Existing code to reuse`, and keep to its `Contracts` exactly: other parts are being written against them at the same time.
 4. Write the tests listed in the `Tests` table of your card, with the project's test runner and conventions. They have to meet the coverage criterion of the common file: every line and branch of a new file, every changed line of a changed file. Code the common file lists under `Not covered` is the only exception.
 5. Run the checks (see "Checks in a shared worktree"). Fix every failure your change causes.
-6. Measure coverage. Run the project's coverage command when it has one and record the result for the files you touched. When it has none, list for each new or changed file the tests that exercise it.
+6. Measure coverage, once, at the end: run the project's coverage command when it has one and record the result for the files you touched. When it has none, list for each new or changed file the tests that exercise it.
 7. Do the UI check when your card has one (see "UI check").
 8. Write the implementation report, then send the final message.
 
@@ -86,10 +87,10 @@ When your prompt says other parts are being built in the same worktree, other ag
 
 ## Checks in a shared worktree
 
-- Run the tests and the linter on your own files, with the commands the common file gives for that.
+- Run the tests and the linter on your own files, with the commands the common file gives for that: the named files only, with their worker cap and quiet reporter. Never run the whole suite, and never a coverage run over the whole project: the full check is the orchestrator's, at the end of the wave, and a run from you would compete with the other agents for the machine.
+- Give every test, lint, type check and coverage command a `timeout` of 170000 milliseconds in the Bash call. After about three minutes the harness moves a command to the background and you wait for it with a cold cache, so a command that cannot finish in that time is a sign of an overloaded machine, not something to wait for. If it is cut off, run it once more; if it is cut off again, stop and return `status: blocked` with the command and how long it ran. Never repeat a test command in a shell loop.
 - Run the type check for the whole project and read the result this way: an error in a file of yours is yours to fix; an error in a file of another part is not. List it in your report under `Failures outside this part` and go on. Do not wait for it to disappear and do not fix it.
 - A failure that exists without your change is not yours either: report it with the evidence that it was there before.
-- The full suite of the repository is run by the orchestrator when the wave is complete. Run it yourself only when your prompt says no other part is being built at the same time.
 
 ## UI check
 
@@ -140,7 +141,7 @@ When you are resumed with the review file of your part, or launched in `fix` mod
 - For a failed check, read the log you were given, fix what this task broke, and leave what the baseline log already shows.
 - After fixing, run your checks again.
 
-In `fix` mode there may be no card of your own: read the findings, the common file, the cards you were pointed to and the code they concern. In `ui-check` mode the part is already built and committed: read the card and the report of the part, do the UI check as described above, and fix what you find in the files of that part.
+A fix round of a part may come to you as a new instance: your prompt then names the card, the report of the part ("Report to append to") and its review file. Read the report's `Changes` and the review, open the commit of the part (`git -C <worktree> show <hash> --stat`; the hash is under `Change reviewed` in the review file) only where a finding needs it, and append your `Fix rounds` section to that report, extending its `Changes` table with the files you touch. In `fix` mode without a card (a wave fix, a QA round, bot comments): read the findings, the common file, the cards you were pointed to and the code they concern. In `ui-check` mode the part is already built and committed: read the card and the report of the part, do the UI check as described above, and fix what you find in the files of that part.
 
 ## Implementation report
 
@@ -232,4 +233,4 @@ files:
 <only when status is open-questions>
 ```
 
-The `files` list names every file of the part that is changed and not yet committed: what you changed since your previous final message, and after a hand-over also what the earlier instance left. The orchestrator stages and commits exactly these paths, so a missing line means an uncommitted change and a wrong line means a broken commit. When you changed nothing, write `files: none`.
+The `files` list names every file of the part that is changed and not yet committed: what you changed since your previous final message, and after a hand-over also what the earlier instance left. In a fix round of a committed part it names only the files of this round. The orchestrator stages and commits exactly these paths, so a missing line means an uncommitted change and a wrong line means a broken commit. When you changed nothing, write `files: none`.
