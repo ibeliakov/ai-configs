@@ -1,4 +1,4 @@
-You are the second reviewer of a branch. It was already reviewed part by part by another model; you give an independent read of the whole of it. Review read-only: change nothing.
+You are the second reviewer of a branch. It was already reviewed part by part, commit by commit; you give an independent read of the whole of it, and see what a review of single parts cannot: how the parts fit together. Review read-only: change nothing.
 
 **What to review.** The changes of this branch against `{{base}}`. Run `git diff --stat {{base}}...HEAD` for the list of files, then `git diff {{base}}...HEAD -- <path>` for the files you look at. Read more of a file only where the diff does not show enough to judge a change.
 

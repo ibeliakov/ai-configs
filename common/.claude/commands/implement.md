@@ -24,41 +24,47 @@ You are the planner and the orchestrator, and you run in the main session. You r
 |---|---|---|
 | `Explore`, `Plan` (built in, read only) | research the code while you plan | nothing: their findings come back in their final message |
 | `task-implementer` | builds one part and proves it works (tests, UI check), fixes findings | code in worktrees, `03-implementation/part-<n>.md` |
-| `task-reviewer` | reviews the commit of a part, verifies fixes, reviews a wave across its parts, triages bot comments | `04-review/part-<n>.md`, `04-review/wave-<w>.md`, triage in `07-pr.md` |
+| `task-reviewer` | reviews a wave across its parts, triages bot comments and the findings of the second review, verifies the fixes of what it triaged; reviews parts only when Codex is not used | `04-review/wave-<w>.md`, triage in `07-pr.md` and `04-review/codex-<repo>.triage.md`, `04-review/pr-round-<n>.md`, `04-review/second-review-<repo>.md` |
 | a fork of this session | writes the documentation and the test cases: it inherits what you know about the feature | documentation worktree, `05-docs.md` |
 | `task-docs` | brings the documentation in line after fixes (`sync`), and writes it when a fork cannot be used | documentation worktree, `05-docs.md` |
-| Codex (another model, run through `scripts/codex-run.mjs`) | reviews the whole branch a second time, and tests the running application in a browser of its own | `04-review/codex-<repo>.md`, `06-qa.md` |
+| Codex (another model, run through `scripts/codex-run.mjs`) | reviews the commit of every part and the commits that fix its findings, reads the whole branch once more at the end, and tests the running application in a browser of its own | `04-review/part-<n>.md`, `04-review/codex-<repo>.md`, `06-qa.md` |
 | `task-qa` | tests the running application when Codex is not used | `06-qa.md` |
 
-Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Everything else runs on Opus at `xhigh`: the three other `task-*` agents by their files, you, the research agents and the documentation fork by the session (Step 1). Codex runs on its own model and its own quota.
+Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file, for `wave-review`, `pr-triage` and `external-triage`; in `fix-verification` mode it is launched with `model: "opus"`, the one exception of rule 1. Everything else runs on Opus at `xhigh`: the three other `task-*` agents by their files, you, the research agents and the documentation fork by the session (Step 1). Codex runs on its own model and its own quota: the review of every part and of its fixes, the second review, QA.
 
 ---
 
 ## Rules that hold in every step
 
-1. **Launching agents.** Call the Agent tool with `subagent_type` set to one of the four `task-*` names above, or, while you plan, to `Explore` or `Plan`. Do not pass `model`, `effort` or `isolation` to a `task-*` agent: the model and effort are pinned in each agent's file and a parameter would override them. Launch `Explore` with `model: "opus"`; `Plan` inherits the session. The only fork you start is the documentation writer of Step 8. Do not use any other agent type or any other fork, and do not do an agent's job yourself. If an agent cannot be launched, stop and tell the person.
+1. **Launching agents.** Call the Agent tool with `subagent_type` set to one of the four `task-*` names above, or, while you plan, to `Explore` or `Plan`. Do not pass `model`, `effort` or `isolation` to a `task-*` agent: the model and effort are pinned in each agent's file and a parameter would override them. The one exception: a `task-reviewer` in `fix-verification` mode is launched with `model: "opus"`, because checking a fix against written findings does not need the stronger model. Launch `Explore` with `model: "opus"`; `Plan` inherits the session. The only fork you start is the documentation writer of Step 8. Do not use any other agent type or any other fork, and do not do an agent's job yourself. If an agent cannot be launched, stop and tell the person.
 2. **State travels through files.** Every `task-*` agent reads and writes files in the task directory. Give agents absolute paths. Never paste or paraphrase one agent's result into another agent's prompt: point to the file. The only text of your own in a prompt is the live notes of rule 14.
 3. **Agents run in the background.** After you launch or resume one, end your turn with one line saying what is running. Continue when a completion notification arrives, and do everything that has become possible in that one turn: commit, launch the reviewer, launch the parts that can start, update `state.md`. Never predict, summarise or act on a result you have not received.
-4. **One agent, one unit of work.** An agent reads its whole history again on every turn it takes, so a long-lived agent gets more expensive with every step. Keep histories short:
-   - the implementer and the reviewer are launched anew for every part, and resumed only inside that part (answers to their questions, the fix loop, the turn with the UI tool). A wave fix, a QA fix round and a review bot round also get new instances;
-   - `task-docs` and `task-qa` are resumed only for answers to their questions. A `sync`, a `cases` run or a `retest` is a new instance that reads the earlier report;
+4. **One agent, one unit of work.** An agent reads its whole history again on every turn it takes, so a long-lived agent gets more expensive with every step; and its prompt cache lives only about five minutes after its last request, so a resume that comes later first writes the whole history into the cache again. Keep histories short and resumes immediate:
+   - **resume only within about five minutes** of an agent's return (the time of every return is in `state.md`). Inside that window a resume is cheaper than a new instance, because the agent still knows the code; after it, launch a new instance of the same type and point it to the files, so that nothing is explained twice:
+     - a fix round of a part → a new `task-implementer` in `Mode: fix` with the review file, the card and the report of the part (Step 7d);
+     - a verification of the fixes of triaged findings → a new `task-reviewer` in `fix-verification` mode with the triage, the fixer's report and the commit (Steps 7i and 11);
+     - the turn with the UI tool → a new `task-implementer` in `Mode: ui-check` (Step 7f.5);
+     - the person's answer to open questions → a new instance with "Continue from the report: `<path>`" and the answers (they are in `01-context.md` too, rule 5); an answer you take from the plan in the same turn is a resume;
+     - a `needs-file` grant you can give at once is a resume; one that waited for another part goes to a new instance with "Granted: `<path>`. Continue from the report: `<path>`";
+   - every part gets a new implementer, and its review is a Codex run of its own (Step 7d). A wave fix, a QA fix round and a review bot round also get new instances;
+   - `task-docs` and `task-qa` are resumed only for answers to their questions, inside the window. A `sync`, a `cases` run or a `retest` is a new instance that reads the earlier report;
    - never run two instances of `task-docs` at the same time, and never two QA runs, whether on Codex or with `task-qa`: they write one report;
    - a fork and a Codex run are never resumed: a new one continues from the report;
    - an agent that returns `status: partial` has handed its work over on purpose: launch a new instance of the same type with the same prompt and the added line "Continue from the report: `<path>`". It is not resumed;
-   - an agent that stopped at its turn limit has not written its report yet. Resume it once with: "Do not continue the work. Write your report now with `Status: partial` and what remains, then stop." Then launch a new instance as above. The reviewer has no hand-over: resume it with "Continue from where you stopped."
+   - an agent that stopped at its turn limit has not written its report yet. Resume it at once with: "Do not continue the work. Write your report now with `Status: partial` and what remains, then stop." Then launch a new instance as above. The reviewer has no hand-over: inside the window resume it with "Continue from where you stopped."; later, launch a new instance for the same review.
 
-   Record every agent ID in `state.md` as soon as you get it, and resume with SendMessage and that ID. An agent of an earlier session cannot be resumed: launch a new instance and point it to the files that hold the earlier work.
+   Record every agent ID in `state.md` as soon as you get it, with the time of each of its returns, and resume with SendMessage and that ID. An agent of an earlier session cannot be resumed: launch a new instance and point it to the files that hold the earlier work.
 5. **Questions.** While you plan, you ask the person yourself. When an agent returns `status: open-questions`:
    - a question the approved plan already answers, you answer from the plan: find the card or the decision with a targeted search and quote it when you resume the agent;
    - anything that needs a new decision (behaviour, scope, cost, risk, a choice between approaches) goes to the person with AskUserQuestion: at most four questions per call, the options as choices, the recommended option first and labelled as a recommendation. Never decide such a question yourself.
 
-   Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers.
+   Append each question and answer to `01-context.md` under `## Clarifications`, then resume the same agent with the answers, or, when the answer took longer than the window of rule 4, launch a new instance that continues from the report with them.
 6. **Nothing is built before the plan is approved.** Until the person approves the plan there are no worktrees, no code edits and no commits. Plan mode enforces this while you plan.
 7. **Git.** Only you commit, only inside task worktrees, only after the plan is approved, and always by the project's commit command (Step 7, "Commits"). Agents never run a git command that writes. Push and open pull requests only after `yes` at the PR gate, with one exception that the person approves with the plan: in a repository delivered in batches, every batch is pushed and gets its pull request into the task branch as soon as it is built, and the fixes of that pull request are pushed to it (Step 7, "Batches"). Nothing reaches a base branch before the PR gate. Never merge a pull request: the person merges. A local merge into the working branch of a task worktree is made only where "Batches" names it: the task branch after the person merged a batch, the batch branch after the person committed to its pull request, and the base branch when the person asked for it. Never force-push, never rewrite history, never change a main checkout.
 8. **Shortcut.** Read freely through the Shortcut MCP tools and the REST API (GET only). Exactly two writes are allowed: moving a story to In Development (automatic, Steps 2 and 7) and one final comment after an explicit `yes` (Step 13). Nothing else, ever.
 9. **Credentials.** Local and staging applications are entered with the test users from local settings. External systems are entered by the person, never by you or an agent. Production is never entered or tested. Credential values never go into any file.
 10. **Language.** Files, prompts and artifacts are in English, with one exception: the part of the plan that is written for the person (Step 3) is in the language the person uses. Talk to the person in that language too.
-11. **A blocked agent.** If an agent returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent. A block that names an environment problem is yours: fix the environment (Step 6), update `Environment` in the context file, and resume the agent, or launch a new instance when it is `task-qa`. An agent that reached its turn limit is handled as rule 4 says.
+11. **A blocked agent.** If an agent returns `status: blocked`, show the person what it needs, resolve it with them, and resume the same agent (inside the window of rule 4; later a new instance continues from its report). A block that names an environment problem is yours: fix the environment (Step 6), update `Environment` in the context file, and resume the agent, or launch a new instance when it is `task-qa`. An agent that reached its turn limit is handled as rule 4 says.
 12. **The epic analysis is not yours.** `.tasks/epic-<id>/readiness/` is written by `/epic-readiness`. Read it and give its paths to agents. Never write, move or delete anything inside it.
 13. **Keep your own context small.** You take a hundred or more turns in a run and each one reads this whole conversation again, so your context is the most expensive one in the pipeline.
     - While you plan: the requirements you read yourself; the code is read by research agents, and you open only the ranges a decision depends on.
@@ -72,7 +78,12 @@ Models: `task-reviewer` runs on Fable at `high` effort, pinned in its file. Ever
       Never suggest `/clear`: it replaces this conversation, and the person loses sight of its agents and of what they reported. Offer the choice only while no agent is running, and first make sure `state.md` holds everything the run needs. After a compaction, read this file and `state.md` again and continue from the recorded stage. When the script prints `unknown`, judge by how much you have read.
 14. **Live notes.** You may add up to five lines of your own to an agent's prompt, under `Notes from the orchestrator`: what an earlier part exported and where, a decision the person made after the plan was approved, a pitfall another agent reported. Facts with paths only, and nothing that contradicts the card.
 15. **The UI tool has one user at a time.** The browser of the session (the `playwright` server) and the mobile device (the `mobile-mcp` server) are shared by every agent, and two agents using one of them at the same moment break each other's pages. Record the holder in `state.md` and give the tool to the next agent only after the holder has returned. A turn ends when its holder returns, with whatever status: every later message to that agent, and the prompt of an instance that continues its work, says again whether it has the tool. A Codex run with a browser is outside this rule, because it starts a browser of its own; on the mobile device it takes its turn like everyone else.
-16. **Codex.** The second review (Step 7i) and QA (Step 8b) are done by Codex, another model with its own quota. Start it only through `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs"`, as a background shell command: one line saying what runs, then wait for the notification, as with an agent. The script prints a short block; act on that block and do not read its logs. When Codex is not ready, or a run ends with `status: failed`, show the person the `reason` line and ask with AskUserQuestion: for the second review, try again or skip it; for QA, try again, use `task-qa`, or skip QA. Record the answer in the `Finish` table of `state.md`. An answer other than "try again" holds for the rest of the run: do not ask the same question at the next step.
+16. **Codex.** The review of every part and of its fixes (Step 7d), the second review (Step 7i) and QA (Step 8b) are done by Codex, another model with its own quota. Start it only through `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs"`, as a background shell command: one line saying what runs, then wait for the notification, as with an agent. The script prints a short block; act on that block and do not read its logs. Several part reviews may run at the same time: each is a process of its own. When Codex is not ready, or a run ends with `status: failed`, show the person the `reason` line and ask with AskUserQuestion: for a part review, try again, or have the part reviews of the rest of the run done by `task-reviewer` (the fallback of Step 7d); for the second review, try again or skip it; for QA, try again, use `task-qa`, or skip QA. Record the answer in the `Codex` line of `state.md` (part reviews) or in its `Finish` table. An answer other than "try again" holds for the rest of the run: do not ask the same question at the next step. A run that ends `status: unparsed` is started once more; a second `unparsed` counts as `failed`.
+17. **Short turns.** An agent's prompt cache lives about five minutes. A turn that takes longer (a command that runs for minutes, a wait for a command that was moved to the background) comes back to a cold cache, and the agent's whole context is written again. The agents are told this in their files; what is yours to keep:
+    - the full check (type check, lint, all tests) is run by you alone: the baseline, the wave check, the check before a push. Start it only when no implementer or fixer is working in that worktree, and launch or resume nothing that edits or tests while it runs;
+    - after a red check, the fixers of one worktree run one at a time (Step 7f.4);
+    - the check commands an agent gets in `common.md` run the named files only, with a worker cap and a quiet reporter (the `Common` template).
+18. **A stop by a limit.** When an agent's result, a Codex run or the session itself says that a request was stopped by an API rate limit or a usage limit, launch, resume and retry nothing. Write what stopped and what is waiting into `Waiting` of `state.md`, tell the person in one line (and through `PushNotification` when the session has it), and wait for their `continue`. Retrying into a limit writes every waiting agent's context again on each attempt and makes no progress. On `continue`, go on by rule 4: an agent that returned more than five minutes ago gets a new instance.
 
 ---
 
@@ -105,7 +116,7 @@ Check, in this order, and stop at the first failure that blocks the run:
    - Stage `planning`: the plan was not approved. A draft may exist in the plans directory: `grep -l "implement-run: <key>" ~/.claude/plans/*.md`. Take what it holds and plan from Step 3.
    - A run in the older phase layout (`state.md` has a `Phases` table, `02-plan/` holds `phase-<n>.md` files or nothing) is not planned again. Run `node "$AI_CONFIGS_DIR/scripts/split-plan.mjs" --legacy <task dir>` once: it writes `02-plan/common.md` from the old overview. Each phase that remains is built as a part in a wave of its own, in the order of the old plan: its card is `02-plan/phase-<n>.md` (or its section of `02-plan.md`), and its report and review keep the `phase-<n>` names. Documentation and QA run one after the other (Step 8), with `02-plan.md` given wherever a prompt asks for a section file of the plan.
    - On start over, delete only this command's own files (`state.md`, `01-context.md`, `02-plan.md`, `02-plan/`, `03-implementation/`, `04-review/`, `05-docs.md`, `06-qa.md`, `07-pr.md`, `checks/`, `ui/`, `qa/`, and the single-file reports of an older run), keep `attachments/`, and leave `readiness/` untouched.
-8. **Codex.** Skip this check when the `state.md` of a continued run already holds the person's answer about Codex. Otherwise run `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" check`. If the line it prints does not start with `codex: ready`, tell the person that the second review and QA are planned on Codex, and ask with AskUserQuestion: the person sets Codex up and answers, or the run goes on without it (no second review, QA with `task-qa`). Keep the answer for the `Codex` line of `state.md`, which is written in Step 2 (rule 16).
+8. **Codex.** Skip this check when the `state.md` of a continued run already holds the person's answer about Codex. Otherwise run `node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" check`. If the line it prints does not start with `codex: ready`, tell the person that the review of every part, the second review and QA are planned on Codex, and ask with AskUserQuestion: the person sets Codex up and answers, or the run goes on without it (part reviews by `task-reviewer`, no second review, QA with `task-qa`). Keep the answer for the `Codex` line of `state.md`, which is written in Step 2 (rule 16).
 
 ## Step 2. Collect the context
 
@@ -319,6 +330,8 @@ A web URL must be a local or staging address. If you cannot tell whether an addr
 
 Test users come from the `test_users` key of `.claude/settings.local.json` in the session directory, or in the target project if the session directory has none. Do not ask the person for them. These environments hold test data only, so agents may create, change and delete whatever they need with these users. Give agents the path of the settings file, never the values. If no test users are configured, ask the person for credentials and keep them in the conversation only.
 
+**The machine.** On macOS start `caffeinate -i -s` as a background shell command for the whole run and write its PID into `state.md`: a sleeping machine freezes every running command and lets every cache expire. Tell the person once that closing the lid still puts the machine to sleep. Stop it in Step 12.
+
 **The baseline.** Before the first part is built, run the full check of `common.md` (type check, lint, all tests) once in every code worktree, with the output sent to `<task dir>/checks/baseline.log` and only the summary shown. A failure that is there before the run is not this task's: note it in `state.md`, and leave it out of every later check.
 
 ## Step 7. Build the parts, wave by wave
@@ -351,38 +364,51 @@ Notes from the orchestrator: <up to five lines, or "none">
 
 **c. When an implementer returns:**
 
-- `done` → commit the part from the `files` list of its final message (see "Commits" below) and launch its reviewer (d). With `ui-check: waiting`, also put the part into the queue for the UI tool (e).
+- `done` → commit the part from the `files` list of its final message (see "Commits" below) and start its review (d). With `ui-check: waiting`, also put the part into the queue for the UI tool (e).
 - `partial` → rule 4.
 - `open-questions` → rule 5. `blocked` → rule 11. The other parts and the reviews go on, but the end of the wave waits for this part.
-- `needs-file` → the part cannot be finished without changing an existing file that its card does not list. Grant it when no part that is running has that file in its card or was granted it; record the grant in `state.md` and resume the agent with "Granted: `<path>`". Otherwise the request waits until the part that owns the file is committed. A request that changes what the part does is an open question, not a grant.
+- `needs-file` → the part cannot be finished without changing an existing file that its card does not list. Grant it when no part that is running has that file in its card or was granted it; record the grant in `state.md` and resume the agent with "Granted: `<path>`". Otherwise the request waits until the part that owns the file is committed, and then goes to a new instance (rule 4). A request that changes what the part does is an open question, not a grant.
 
-**d. Review.** A new `task-reviewer` for the part, as soon as its commit exists:
+**d. Review.** As soon as the commit of a part exists, start its review by Codex in the background (rule 16):
 
-```text
-Mode: change-review, part <n>, round 1
-Common file: <task dir>/02-plan/common.md
-Card: <task dir>/02-plan/part-<n>.md
-Implementation report: <task dir>/03-implementation/part-<n>.md
-Review file to write: <task dir>/04-review/part-<n>.md
-Change to review: commit <hash> in <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
-Context file (the wording of an acceptance criterion, by its ID only): <task dir>/01-context.md
+```bash
+node "$AI_CONFIGS_DIR/scripts/codex-run.mjs" review-part --repo <worktree directory> --commit <hash> --rules <main checkout> \
+  --common <task dir>/02-plan/common.md --card <task dir>/02-plan/part-<n>.md --report <task dir>/03-implementation/part-<n>.md \
+  --context <task dir>/01-context.md --round 1 --title "<key>, part <n>: <title>" --out <task dir>/04-review/part-<n>.md
 ```
 
+It reads the commit, not the working tree, so the other parts go on being built meanwhile. It prints `status`, `verdict`, the number of blocking and non-blocking findings, `question` lines when it has open questions, and the file, which has the shape of a reviewer's review (`### Round <r>`, `Verdict`, findings `R<r>.<k>`).
+
 - `APPROVED` without findings → the part is approved.
+- `question` lines → rule 5: append the answers to `## Clarifications` of `01-context.md` and start the same round again.
 - Any finding, blocking or not → a fix round:
-  1. Resume the part's implementer: "Settle the findings of round `<r>` in `<review file>`: fix each one, or say in your report why it stays."
+  1. Settle the findings. Inside the window of rule 4 resume the part's implementer with "Settle the findings of round `<r>` in `<review file>`: fix each one, or say in your report why it stays."; otherwise launch a new `task-implementer`:
+
+     ```text
+     Mode: fix, part <n>, review round <r>
+     Task key: <key>
+     What to fix: the findings of round <r> in <task dir>/04-review/part-<n>.md: fix each one, or say in the report why it stays
+     Common file: <task dir>/02-plan/common.md
+     Card: <task dir>/02-plan/part-<n>.md
+     Report to append to: <task dir>/03-implementation/part-<n>.md
+     Worktree: <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
+     Other parts are being built in this worktree at the same time: yes | no
+     UI tool: none
+     ```
+
   2. Commit what it changed.
-  3. Resume the part's reviewer: "Mode: fix-verification, part `<n>`, round `<r+1>`. Fix commit: `<hash>`." When the implementer changed nothing, give no commit and ask it to weigh the reasons.
+  3. Verify with the same `review-part` command, `--round <r+1>` and `--commit <fix hash>`: the script reads the earlier rounds from the review file and the implementer's `Fix rounds` from the report, and appends the round. When the implementer changed nothing, leave `--commit` out: Codex then weighs the reasons only.
 - After a verification: `APPROVED` → the part is approved, and non-blocking findings that remain go to the open items of the summary without another round. `CHANGES REQUESTED` → one more fix round.
-- If the implementer declined a finding and the reviewer kept it, put both positions to the person with AskUserQuestion.
+- A finding the implementer declined and Codex kept goes to the person with AskUserQuestion, both positions taken from the files.
 - After two fix rounds that still end in `CHANGES REQUESTED`, ask the person with AskUserQuestion: run another round, accept the part as it is (the remaining findings go into the open items of the summary), or stop.
+- `failed` → rule 16. **The fallback without Codex**, by the person's answer: a new `task-reviewer` in `Mode: change-review, part <n>, round 1` with the common file, the card, the implementation report, the review file to write, the commit and the context file; a verification is a new `task-reviewer` in `fix-verification` mode (`model: "opus"`, rule 1) with the review file, the report and the fix commit.
 
 A fix round runs at once while its own wave is still being built. Once the next wave has started, the fix rounds of earlier waves wait for the end of the running wave (f): a fix must not change code under a part that is being built on top of it.
 
-**e. The UI check.** An implementer launched with `UI turn: now` does its UI check before it returns. One that returned `ui-check: waiting` gets its turn as soon as the tool is free: resume it with "The UI tool is yours: run the UI check of your card now." Give one turn at a time (rule 15). It answers with:
+**e. The UI check.** An implementer launched with `UI turn: now` does its UI check before it returns. One that returned `ui-check: waiting` gets its turn as soon as the tool is free: inside the window of rule 4 resume it with "The UI tool is yours: run the UI check of your card now."; later, launch a new `task-implementer` with `Mode: ui-check` and the prompt of (b). Give one turn at a time (rule 15). It answers with:
 
 - `ui-check: passed` → nothing more to do.
-- `ui-check: fixed` → commit the files it lists. That commit is verified by the part's reviewer with a `fix-verification`, together with a review fix when one is pending.
+- `ui-check: fixed` → commit the files it lists. That commit is verified by a `review-part` round of Codex (d.3), together with a review fix when one is pending.
 - `ui-check: blocked` → the application could not show the part. An environment problem is yours to fix (Step 6), and then the agent gets its turn again. When the cause is code that is still being written by another part, the check is repeated at the end of the wave (f).
 
 A part that needs a new native build of the mobile application cannot be checked on the device: record it as an open item for the summary.
@@ -390,8 +416,8 @@ A part that needs a new native build of the mobile application cannot be checked
 **f. The end of a wave.** When every part of the wave is committed and no implementer is running:
 
 1. Run the fix rounds that waited for this moment (d, g). Rounds of parts that share no file may run at the same time. Parts of different waves can own the same file, and a granted file counts too: their rounds go one after another.
-2. `git -C <worktree> status --short` has to be empty. A file that is left belongs to some part: find the part by its card, and resume its implementer to account for it. Never stage a file blindly, and never stage `.env` files, credentials or anything from the task directory.
-3. **The wave check.** Run the full check of `common.md` (type check, lint, all tests) in every changed worktree, with the output sent to `<task dir>/checks/wave-<w>.log` and only the summary shown. While it runs, launch and resume nothing that edits. A failure that the baseline already had does not count.
+2. `git -C <worktree> status --short` has to be empty. A file that is left belongs to some part: find the part by its card, and have its implementer account for it (a resume inside the window of rule 4, a new instance with "Continue from the report" after it). Never stage a file blindly, and never stage `.env` files, credentials or anything from the task directory.
+3. **The wave check.** Run the full check of `common.md` (type check, lint, all tests) in every changed worktree, with the output sent to `<task dir>/checks/wave-<w>.log` and only the summary shown. Start it only when no implementer or fixer is working in that worktree (rule 17), and while it runs launch and resume nothing that edits or tests. A failure that the baseline already had does not count.
 4. A red check goes to a wave fixer, a new `task-implementer`:
 
    ```text
@@ -406,8 +432,8 @@ A part that needs a new native build of the mobile application cannot be checked
    UI tool: none
    ```
 
-   Commit its change, have it reviewed by a new `task-reviewer` (`Mode: change-review, wave <w> fix <k>`, with the wave fixer's report in place of a card and the review written to `04-review/wave-<w>-fix-<k>.md`), and run the check again. After two attempts that leave it red, ask the person.
-5. With the check green, run the UI checks that are still open, one at a time: the application is in its best state now. An implementer that cannot be resumed is replaced by a new `task-implementer` with `Mode: ui-check` and the prompt of (b). If one of them changed code, commit it and run the check again.
+   While a wave fixer works, no other fix round runs in that worktree (rule 17). Commit its change, have it reviewed by a `review-part` run as in (d) without `--card` (the fixer's report is the plan: `--report <task dir>/03-implementation/wave-<w>-fix-<k>.md`, `--title "<key>, wave <w> fix <k>"`, `--out <task dir>/04-review/wave-<w>-fix-<k>.md`), with the fix loop of (d), and run the check again. After two attempts that leave it red, ask the person.
+5. With the check green, run the UI checks that are still open, one at a time: the application is in its best state now. An implementer whose window of rule 4 has passed, or that cannot be resumed, is replaced by a new `task-implementer` with `Mode: ui-check` and the prompt of (b). If one of them changed code, commit it and run the check again.
 6. Measure your context (rule 13) and update `state.md`. Above the threshold of rule 13, let the running reviews and their fix rounds finish first, and then ask.
 7. If this wave is the last one of its batch, nothing more is built until the batch is delivered: go to "Batches" below. Otherwise, before the next wave starts, every part that one of its parts names under `Starts after review of` has to be approved. Wait for those reviews and run their fix rounds now, while nothing is being built: left to wait for the end of the wave that needs them, they would never run. Then start the next wave. The other reviews of this wave go on in the background.
 
@@ -448,7 +474,18 @@ It prints `status`, the number of findings and the file.
   Worktree: <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
   ```
 
-  `ask-user` items go to the person, and the answer turns each into `fix` or `dismiss`. For the `fix` items launch one `task-implementer` for the repository with `Mode: fix`, "What to fix: the findings marked `fix` in `<triage file>`", the report `<task dir>/03-implementation/second-review-<repo>.md` and the other lines of the wave fixer's prompt (f.4). Commit its change under the story ID alone ("Commits"), and resume the triage reviewer: "Mode: fix-verification. Fix commit: `<hash>`. Review file to write: `<task dir>/04-review/second-review-<repo>.md`." When it requests changes, follow the fix loop of (d). Then run the check of (f.3) again. Codex is not run a second time.
+  `ask-user` items go to the person, and the answer turns each into `fix` or `dismiss`. For the `fix` items launch one `task-implementer` for the repository with `Mode: fix`, "What to fix: the findings marked `fix` in `<triage file>`", the report `<task dir>/03-implementation/second-review-<repo>.md` and the other lines of the wave fixer's prompt (f.4). Commit its change under the story ID alone ("Commits"), and launch a new `task-reviewer` with `model: "opus"` (rule 1) to verify it:
+
+  ```text
+  Mode: fix-verification, second review of <repo>
+  Findings: the `fix` rows of <triage file>
+  Fixer's report: <task dir>/03-implementation/second-review-<repo>.md
+  Fix commit: <hash> in <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
+  Review file to write: <task dir>/04-review/second-review-<repo>.md
+  Common file: <task dir>/02-plan/common.md
+  ```
+
+  When it requests changes, one more round the same way: a new fixer, a new verifier. Then run the check of (f.3) again. Codex does not read the whole branch a second time.
 - `failed` → rule 16.
 
 ### Commits
@@ -496,11 +533,11 @@ cd <worktree> && gh pr create --base <task branch> --head <batch branch> --title
 
 **3. The bot's rounds.** Go through Step 11 for this pull request. Its fixes are committed on the working branch and pushed to the batch branch with the same `git push origin HEAD:refs/heads/<batch branch>`, so the pull request shows the chain of fixes. A push that is refused because the batch branch holds commits you do not have means the person committed to the pull request: fetch the batch branch, merge it into the working branch, and push again.
 
-**4. Tell the person.** When a round ends with nothing left to fix and every reply posted, the pull request is ready for the person. Say so in one short message, in the person's language: the link, how many of the bot's comments were fixed and how many were answered without a change, anything left open, and the state of the pull request's checks (`gh pr checks <number>`). A failing check is named there, with the question whether to fix it. If the session has a `PushNotification` tool, send the same line through it: the person may be away.
+**4. Tell the person.** When a round ends with nothing left to fix and every reply posted, the pull request is ready for the person. Say so in one short message, in the person's language: the link, how many of the bot's comments were fixed (and that a reviewer verified the fixes: `04-review/pr-round-<n>.md`) and how many were answered without a change, anything left open, and the state of the pull request's checks (`gh pr checks <number>`). A failing check is named there, with the question whether to fix it. If the session has a `PushNotification` tool, send the same line through it: the person may be away.
 
 **5. Wait for the person.** Start a background shell loop that looks at the pull request every two minutes and ends when it is merged or closed, or when it has a review or a comment that is newer than your message and comes from neither the bot nor an integration. It may run for many hours: start it again when it ends on its own limit. Build nothing meanwhile.
 
-- **The person commented,** on the pull request or in the session. These are instructions, not claims to weigh, so there is no triage. Copy them into `07-pr.md` under a new `## Round <n>` with IDs `P<n>.<k>`. Answer a question in its thread; ask the person in the session when a comment can be read two ways. For the rest, launch the fixer as item 2 of "Act on the triage" in Step 11 says, with "What to fix: the person's review comments `P<n>.<k>` of round `<n>` in `<task dir>/07-pr.md`. They are instructions of the person, not claims to weigh", and commit its change. No reviewer made a triage in this round, so the commit is reviewed by a new `task-reviewer` the way a wave fix is (f.4): `Mode: change-review, pull request round <n>`, with the fixer's report `<task dir>/03-implementation/pr-round-<n>.md` in place of a card and the review written to `<task dir>/04-review/pr-round-<n>.md`, and with the fix loop of (d). Then go on as items 3 to 5 say. The push is read by the bot as one more round (3), and then the person is told again (4).
+- **The person commented,** on the pull request or in the session. These are instructions, not claims to weigh, so there is no triage. Copy them into `07-pr.md` under a new `## Round <n>` with IDs `P<n>.<k>`. Answer a question in its thread; ask the person in the session when a comment can be read two ways. For the rest, launch the fixer as item 2 of "Act on the triage" in Step 11 says, with "What to fix: the person's review comments `P<n>.<k>` of round `<n>` in `<task dir>/07-pr.md`. They are instructions of the person, not claims to weigh", and commit its change. No reviewer made a triage in this round, so the commit is reviewed by a `review-part` run the way a wave fix is (f.4), without `--card`: `--report <task dir>/03-implementation/pr-round-<n>.md`, `--title "<key>, pull request round <n>"`, `--out <task dir>/04-review/pr-round-<n>.md`, with the fix loop of (d). Then go on as items 3 to 5 say. The push is read by the bot as one more round (3), and then the person is told again (4).
 - **Merged.** Bring the working branch up to the task branch:
 
   ```bash
@@ -595,7 +632,7 @@ The script prints `status`, `verdict`, the counts, one line for every finding an
 **a. Findings of the first pass.** `BUG` findings of the `acceptance` pass start fix round 1, but only after the documentation writer, when there is one, has finished: it describes the code as it is, and a fix made under it leaves the document describing something else.
 
 1. Launch a new `task-implementer` with `Mode: fix`, "What to fix: the `BUG` findings of round `<r>` in `<task dir>/06-qa.md`", the report `<task dir>/03-implementation/qa-round-<r>.md` and the other lines of the wave fixer's prompt (Step 7f). The fix is checked in the application by the next QA run, not by the fixer.
-2. Commit, and have the commit reviewed by a new `task-reviewer` in `change-review` mode, writing `<task dir>/04-review/qa-round-<r>.md`, with the fix loop of Step 7d.
+2. Commit, and have the commit reviewed by a `review-part` run as in Step 7d without `--card` (`--report <task dir>/03-implementation/qa-round-<r>.md`, `--title "<key>, QA round <r>"`, `--out <task dir>/04-review/qa-round-<r>.md`), with the fix loop of Step 7d.
 3. Always launch a new `task-docs` with `Mode: sync`, the lines of Step 8a from `Task key` down, the finding IDs in `06-qa.md` and the report of the fix round: the document and the test cases were written from the code before the fix and may describe the defect as the behaviour. Commit its changes.
 
 **b. The run of the test cases.** When the documentation is committed, start a new QA run (Step 8b) with `Mode: cases`, the documentation report and worktree filled in, and "Items to rerun: `<the BUG findings fixed in a>`". It executes the written cases as they are written, so a wrongly worded case comes back as a `DOC` finding.
@@ -676,7 +713,18 @@ Worktrees:
 **Act on the triage.**
 
 1. `ask-user` items → AskUserQuestion; the answer turns each into `fix` or `reply`.
-2. `fix` items → launch a new `task-implementer` with `Mode: fix`, "What to fix: the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md`", the report `<task dir>/03-implementation/pr-round-<n>.md` and the other lines of the wave fixer's prompt (Step 7f). Commit its change locally, then resume this round's reviewer in `fix-verification` mode with that commit, writing `<task dir>/04-review/pr-round-<n>.md`.
+2. `fix` items → launch a new `task-implementer` with `Mode: fix`, "What to fix: the comments marked `fix` in the triage of round `<n>` in `<task dir>/07-pr.md`", the report `<task dir>/03-implementation/pr-round-<n>.md` and the other lines of the wave fixer's prompt (Step 7f). Commit its change locally, then launch a new `task-reviewer` with `model: "opus"` (rule 1) to verify it:
+
+   ```text
+   Mode: fix-verification, pull request round <n>
+   Findings: the `fix` rows of the triage of round <n> in <task dir>/07-pr.md
+   Fixer's report: <task dir>/03-implementation/pr-round-<n>.md
+   Fix commit: <hash> in <repo>: <worktree directory> (rules: <main checkout>/CLAUDE.md and <main checkout>/.claude/rules/)
+   Review file to write: <task dir>/04-review/pr-round-<n>.md
+   Common file: <task dir>/02-plan/common.md
+   ```
+
+   Record it under `Other agents` in `state.md`. When it requests changes, one more fixer and one more verifier, the same way.
 3. If a fix changed behaviour, update the documentation with a new `task-docs` in `sync` mode, and then rerun the affected cases with a QA run in `retest` mode (Step 8b). A batch delivered before Step 8 has nothing to bring in line: the documentation and QA come later and see the fixed code.
 4. Push **once** per repository for the whole round, when its fixes are committed and verified and the check of Step 7f.3 is green again. Every push starts another bot review and uses its quota, so never push fixes one at a time.
 5. Reply in every thread with `gh api`: "Fixed in `<short sha>`: <what changed>" for fixed comments, the reviewer's drafted reply for the others. Resolve the threads you fixed (GraphQL `resolveReviewThread`). Leave declined threads open for the bot or the person to close. Answer remarks from the review body in one pull request comment that mentions `@coderabbitai`.
@@ -686,11 +734,11 @@ After three rounds of the bot on one pull request (count that pull request's own
 
 ## Step 12. Summary
 
-Stop any development server you started. Set the stage in `state.md` to `done`. Then report, in the person's language:
+Stop any development server you started, and the `caffeinate` process of Step 6. Set the stage in `state.md` to `done`. Then report, in the person's language:
 
 - what changed, per repository and per part;
 - the pull requests, with links, the batches included;
-- the review outcome, the second review, the UI checks, the documentation written, the QA result, the bot rounds;
+- the review outcome (the Codex rounds of every part, the wave reviews), the second review, the UI checks, the documentation written, the QA result, the bot rounds and the verification of their fixes;
 - what to check by hand;
 - open items: backend dependencies, findings accepted or deferred, skipped steps, pending screenshots, test data left behind;
 - the worktree directories and branches.
@@ -724,15 +772,16 @@ Update it after every stage change, every agent launch and every commit.
 - Application: <URL, or device and application ID> (started by the orchestrator: yes | no) | not available
 - UI tool: <shared-browser | mobile-device <ID>>, held by <agent and part> | free
 - Context: <last measurement, date and time>
-- Codex: ready | not used for <the second review, QA>, by the person's answer of <date and time>
+- Codex: ready | not used for <part reviews, the second review, QA>, by the person's answer of <date and time>
+- Caffeinate PID: <pid> | none
 
 ## Repositories
 <Start commit: the commit the worktree was created from. Delivery: one pull request | batches>
 | Repository | Main checkout | Base | Start commit | Worktree | Branch | Delivery | Baseline check | Pull request |
 
 ## Parts
-<Status: pending | implementing | committed | fixing | approved | accepted with open findings | waiting for the person>
-| # | Wave | Batch | Story | Title | Status | Implementer ID | Reviewer ID | Review rounds | UI check | Commits |
+<Status: pending | implementing | committed | fixing | approved | accepted with open findings | waiting for the person. Returned: the time of the implementer's last return (rule 4). Review: `codex` and the round it reached, or the reviewer's agent ID in the fallback>
+| # | Wave | Batch | Story | Title | Status | Implementer ID | Returned | Review | Review rounds | UI check | Commits |
 
 ## Waves
 | Wave | Parts | Check | Review across parts | Fix attempts |
@@ -742,11 +791,11 @@ Update it after every stage change, every agent launch and every commit.
 | # | Waves | Repository | Batch branch | Files | Pull request | Bot rounds | Rounds for the person | Status |
 
 ## Waiting
-<fix rounds that wait for the end of the running wave; parts in the queue for the UI tool; `needs-file` requests and grants>
+<fix rounds that wait for the end of the running wave; parts in the queue for the UI tool; `needs-file` requests and grants; a stop by a limit: what stopped, since when (rule 18)>
 
 ## Other agents
-<documentation, QA, wave fixers, fix rounds, bot rounds: one row per instance>
-| Role | Agent ID | Used for |
+<documentation, QA, wave fixers, fix rounds, verifiers of bot rounds: one row per instance; Returned: the time of its last return (rule 4)>
+| Role | Agent ID | Returned | Used for |
 
 ## Finish
 <the steps after the last wave, one row each: the second review of every repository, the documentation, every QA run, every fix round>
@@ -812,6 +861,7 @@ Task: <key> <title>
 | Repository | Worktree | Branch | Rules (`CLAUDE.md` and `.claude/rules/`) |
 
 | Repository | Type check | Lint, own files | Tests, own files | Full check (type check, lint, all tests) | Coverage |
+<`Tests, own files` and `Coverage` take the named files only, with a worker cap (`--maxWorkers=2` for vitest and jest) and a reporter that prints failures and the summary (`--reporter=dot` for vitest): several agents run them at the same time on one machine. The full check is for the orchestrator alone.>
 
 Coverage criterion: <as stated in Step 3e>
 Not covered: <files, or "None">

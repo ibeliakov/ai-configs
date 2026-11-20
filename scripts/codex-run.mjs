@@ -9,6 +9,10 @@ const USAGE = [
   '  node codex-run.mjs check',
   '  node codex-run.mjs review --repo <worktree> --base <ref> --rules <main checkout> --out <findings.md>',
   '                            [--plan <file>] [--timeout <minutes>] [--model <model>] [--dry-run]',
+  '  node codex-run.mjs review-part --repo <worktree> --commit <hash>[,<hash>] --rules <main checkout> --round <n>',
+  '                                 --common <common.md> --report <report.md> --out <review.md>',
+  '                                 [--card <part.md>] [--context <context.md>] [--title <title>]',
+  '                                 [--timeout <minutes>] [--model <model>] [--dry-run]',
   '  node codex-run.mjs qa --task-dir <dir> --inputs <file> --agent <task-qa.md> --run <name> --ui browser|mobile|none',
   '                        [--test-users <settings file>] [--report <file>] [--screenshots <dir>]',
   '                        [--watch <worktree>]... [--timeout <minutes>] [--model <model>] [--dry-run]',
@@ -223,6 +227,142 @@ const review = async (options) => {
   console.log(`file: ${out}`);
 };
 
+const partReviewPrompt = (options, round, commits, out) => {
+  const optionalLine = (key, text) => (typeof options[key] === 'string' ? text(path.resolve(options[key])) : '');
+  const commitsText = !commits.length
+    ? 'No commit: the implementer changed no code in this round and gave its reasons in the report'
+    : commits.length === 1
+      ? `Commit \`${commits[0]}\``
+      : `Commits ${commits.map((hash) => `\`${hash}\``).join(', ')} (each against its own parent)`;
+  const lines = {
+    card: optionalLine('card', (file) => `- The card of the part, the plan for it: \`${file}\` (goal, files, code to reuse, contracts, steps, tests, verification, UI check, acceptance criteria).`),
+    context: optionalLine('context', (file) => `- The context file, for the wording of an acceptance criterion by its ID only: \`${file}\`.`),
+    review: round > 1 ? `- The review file with the earlier rounds: \`${out}\`.` : '',
+  };
+  let prompt = readText(path.join(codexDir, 'part-review-instructions.md'))
+    .replaceAll('{{round}}', String(round))
+    .replaceAll('{{title}}', partReviewTitle(options, out))
+    .replaceAll('{{commits}}', commitsText)
+    .replaceAll('{{common}}', path.resolve(options.common))
+    .replaceAll('{{report}}', path.resolve(options.report))
+    .replaceAll('{{rules}}', path.resolve(options.rules));
+  for (const [key, text] of Object.entries(lines)) prompt = prompt.replace(`{{${key}}}\n`, text ? `${text}\n` : '');
+  if (prompt.includes('{{')) fail('A placeholder was left in the part review instructions.');
+  return prompt;
+};
+
+const partReviewTitle = (options, out) =>
+  typeof options.title === 'string' ? options.title : path.basename(out, '.md');
+
+const partReviewMarkdown = (round, mode, changeLine, result) => {
+  const findings = [...result.findings.filter((finding) => finding.blocking), ...result.findings.filter((finding) => !finding.blocking)];
+  findings.forEach((finding, index) => {
+    finding.id = `R${round}.${index + 1}`;
+  });
+  const keptBlocking = result.resolutions.filter((resolution) => resolution.result === 'kept' && resolution.blocking);
+  const verdict = findings.some((finding) => finding.blocking) || keptBlocking.length ? 'CHANGES REQUESTED' : 'APPROVED';
+  const list = (items) =>
+    items.length
+      ? items.map((finding) => `- **${finding.id}** \`${finding.file}:${finding.line}\`: ${finding.title}. ${finding.problem} Why it matters: ${finding.why} Required change: ${finding.required_change}`)
+      : ['- None'];
+  const lines = [
+    `### Round ${round} (${mode})`,
+    changeLine,
+    `Verdict: ${verdict}`,
+    '',
+    result.summary.trim(),
+    '',
+    '#### Blocking',
+    ...list(findings.filter((finding) => finding.blocking)),
+    '',
+    '#### Non-blocking',
+    ...list(findings.filter((finding) => !finding.blocking)),
+  ];
+  if (round > 1 || result.resolutions.length) {
+    lines.push('', '#### Resolutions');
+    lines.push(
+      ...(result.resolutions.length
+        ? result.resolutions.map((resolution) => `- **${resolution.id}** (${resolution.blocking ? 'blocking' : 'non-blocking'}): ${resolution.result}. ${resolution.note}`)
+        : ['- None']),
+    );
+  }
+  if (result.open_questions.length) {
+    lines.push('', '#### Open questions');
+    lines.push(...result.open_questions.map((question, index) => `- Q${index + 1}: ${question}`));
+  }
+  lines.push('', '#### Checked', result.checked.trim(), '');
+  return { verdict, findings, text: lines.join('\n') };
+};
+
+const reviewPart = async (options) => {
+  required(options, ['repo', 'rules', 'round', 'common', 'report', 'out']);
+  const round = Number(options.round);
+  if (!Number.isInteger(round) || round < 1) fail('--round takes a whole number from 1.');
+  const commits = typeof options.commit === 'string' ? options.commit.split(',').map((hash) => hash.trim()).filter(Boolean) : [];
+  if (!commits.length && round === 1) fail('--commit is required in round 1.');
+  const repo = path.resolve(options.repo);
+  const out = path.resolve(options.out);
+  const timeoutMinutes = minutes(options, 15);
+  const mode = round === 1 ? 'change-review' : 'fix-verification';
+  const prompt = partReviewPrompt(options, round, commits, out);
+  const base = out.replace(/\.md$/, `.r${round}`);
+  const answerFile = `${base}.json`;
+  const logFile = `${base}.log`;
+  const args = [
+    'exec', '-C', repo, '-s', 'read-only',
+    '--output-schema', path.join(codexDir, 'part-review.schema.json'),
+    '-o', answerFile,
+    ...(typeof options.model === 'string' ? ['-m', options.model] : []),
+    STDIN_PROMPT,
+  ];
+  if (options['dry-run']) return dryRun(args, prompt);
+
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.rmSync(answerFile, { force: true });
+  const ended = await runCodex(args, prompt, logFile, timeoutMinutes);
+  const result = readJson(answerFile);
+  const valid =
+    result &&
+    typeof result.summary === 'string' &&
+    typeof result.checked === 'string' &&
+    Array.isArray(result.findings) &&
+    Array.isArray(result.resolutions) &&
+    Array.isArray(result.open_questions);
+
+  if (!valid && (ended.code !== 0 || ended.timedOut || !fs.existsSync(answerFile))) {
+    console.log('status: failed');
+    console.log(`reason: ${endReason(ended, logFile, timeoutMinutes)}`);
+    console.log(`log: ${logFile}`);
+    process.exit(2);
+  }
+  if (!valid) {
+    const unparsed = `${base}.unparsed.md`;
+    fs.writeFileSync(unparsed, `# Round ${round} (${mode}) of ${partReviewTitle(options, out)}\n\nThe answer was not in the required shape. It is given as received; the review file was not changed.\n\n${fs.readFileSync(answerFile, 'utf8')}\n`);
+    console.log('status: unparsed');
+    console.log(`file: ${unparsed}`);
+    return;
+  }
+
+  const changeLine = commits.length
+    ? `Change reviewed: ${commits.length === 1 ? 'commit' : 'commits'} ${commits.join(', ')}`
+    : 'Change reviewed: none, the reasons of the implementer only';
+  const rendered = partReviewMarkdown(round, mode, changeLine, result);
+  const existing = fs.existsSync(out) ? fs.readFileSync(out, 'utf8').trimEnd() : '';
+  const header = existing || `# Review: ${partReviewTitle(options, out)}`;
+  fs.writeFileSync(out, `${header}\n\n${rendered.text}`);
+
+  const blocking = rendered.findings.filter((finding) => finding.blocking).length;
+  console.log('status: done');
+  console.log(`verdict: ${rendered.verdict}`);
+  console.log(`findings: ${blocking} blocking, ${rendered.findings.length - blocking} non-blocking`);
+  if (round > 1) {
+    const count = (name) => result.resolutions.filter((resolution) => resolution.result === name).length;
+    console.log(`resolutions: ${count('resolved')} resolved, ${count('withdrawn')} withdrawn, ${count('kept')} kept`);
+  }
+  result.open_questions.forEach((question) => console.log(`question: ${question}`));
+  console.log(`file: ${out}`);
+};
+
 const treeState = (worktree) => {
   const run = (args) => spawnSync('git', ['-C', worktree, ...args], { encoding: 'utf8' }).stdout ?? '';
   return `${run(['rev-parse', 'HEAD']).trim()}\n${run(['status', '--porcelain'])}`;
@@ -341,5 +481,6 @@ const options = parseOptions(rest);
 
 if (command === 'check') check();
 else if (command === 'review') await review(options);
+else if (command === 'review-part') await reviewPart(options);
 else if (command === 'qa') await qa(options);
 else fail(USAGE);
