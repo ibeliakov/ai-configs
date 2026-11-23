@@ -303,7 +303,7 @@ Rules:
 
 Host names of the career site. Everything emitted outwards (canonical link, sitemap `<loc>`, robots.txt) goes through `getCanonicalHost` / `getCanonicalOrigin`, which map the legacy `discoveredats.com` host to `discovered.ai`.
 
-`getJobDetailsRedirectUrl({ host, isProd, jobId, jobUrl, query })` — where a job page opened on a wrong subdomain should go, or `null` (sc-47791). The target host comes from the job's `job_url`; the path and the original query string are kept. `null` when the target is the requested host, when the target is outside the request's parent domain, or when `job_url` is missing. Non-production: the same host with `?subdomain=` replaced, and only when the host name has the `applicant` part (`tht-applicant-stage.herokuapp.com`), so `localhost` never redirects.
+`getJobDetailsRedirectUrl({ host, isProd, jobId, jobUrl, query })` — where a job page opened on a wrong subdomain should go, or `null` (sc-47791). The target host comes from the job's `job_url`; the path and the original query string are kept. `null` when the target is the requested host, when the target is outside the request's parent domain, when the job's company has no subdomain (`job_url` points at `applicant` or has an empty subdomain part), or when `job_url` is missing. Non-production: the same host with `?subdomain=` replaced, and only when the host name has the `applicant` part (`tht-applicant-stage.herokuapp.com`), so `localhost` never redirects.
 
 ### `helpers/debugLogger.ts`
 
