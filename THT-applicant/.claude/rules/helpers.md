@@ -299,6 +299,12 @@ Rules:
 - A new provider is a file in `providers/` plus a line in `client.ts` or `server.ts`; application code does not change.
 - The off switch for an environment is a disabled client key in Sentry, not a flag in code: after a 401 or 403 from Sentry the browser transport (`providers/sentryTransport.ts`, used by `sentry.client.ts`) sends nothing for that DSN for one hour, remembered in `localStorage` under `monitoring:sentry-rejected` (sc-47464). The Node server keeps sending.
 
+### `helpers/host.ts`
+
+Host names of the career site. Everything emitted outwards (canonical link, sitemap `<loc>`, robots.txt) goes through `getCanonicalHost` / `getCanonicalOrigin`, which map the legacy `discoveredats.com` host to `discovered.ai`.
+
+`getJobDetailsRedirectUrl({ host, isProd, jobId, jobUrl, query })` — where a job page opened on a wrong subdomain should go, or `null` (sc-47791). The target host comes from the job's `job_url`; the path and the original query string are kept. `null` when the target is the requested host, when on production the target is not a direct subdomain of `discovered.ai`, when the job's company has no subdomain (`job_url` points at `applicant` or has an empty subdomain part), or when `job_url` is missing. Non-production: the same host with `?subdomain=` replaced, and only when the host name has the `applicant` part (`tht-applicant-stage.herokuapp.com`), so `localhost` never redirects.
+
 ### `helpers/debugLogger.ts`
 
 `isDebugEnabled()` — true in development or when `localStorage.debug_logs` is `'true'`. Gate debug-only logging with it instead of leaving `console.log` in code.
