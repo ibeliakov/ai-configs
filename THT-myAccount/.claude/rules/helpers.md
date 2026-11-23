@@ -493,6 +493,7 @@ Rules:
 | `useNotificationTypes` | `hooks/useNotificationTypes.ts` | Job post notification type catalogue from static data, filtered by the company's services (`{ types, loaded }`) |
 | `useBeforeUnloadPrompt` | `hooks/useBeforeUnloadPrompt.ts` | Browser's native leave-page dialog on refresh or tab close while `when` is true; registers no listener otherwise |
 | `useResendCooldown` | `hooks/useResendCooldown.ts` | *Send again* lock counted from an absolute deadline: `{ isCoolingDown, secondsLeft, start(seconds?), reset }`. Used by the login code screen and the guest verification |
+| `useInertBackground` | `hooks/useInertBackground.ts` | `(layerRef, active)`: while `active`, sets `inert` on every child of `document.body` that does not hold the layer (keeps ones that were already inert), moves the focus to the layer, and on deactivation removes only the `inert` it set and returns the focus to the element that had it. The layer must be portalled to `document.body` and focusable (`tabIndex={-1}`). Used by `templates/BlockingOverlay` (sc-47681) |
 
 Unsaved-changes guards live in `templates/UnsavedChanges`: `useUnsavedChangesScope()` + `UnsavedChangesProvider` create a nested scope that renders the shared `UnsavedChangesModal` (the `RouterPrompt` modal) for `scope.confirmDiscard(action)`; inputs call `useReportUnsavedChanges(isDirty)` (no-op outside a provider). Dirty means "value differs from the initial value", never "touched".
 
