@@ -284,6 +284,14 @@ Return to a storage file after the login:
 | `takeStorageRedirect()` | Reads and forgets the remembered file; `finalizeLogon` opens it instead of reloading the page |
 | `clearStorageRedirect()` | Forgets the remembered file without opening it — for a page whose login must return to itself (the AI tool approval page) |
 
+### `loginRedirect.ts`
+Return to the requested page after the login:
+
+| Function | Purpose |
+|----------|---------|
+| `LOGIN_REDIRECT_PARAM` | `redirect_to` — the query parameter of the login page `/` that carries the page a signed-out user asked for |
+| `getLoginRedirect(search, allowedPaths)` | The `redirect_to` target as `pathname + search + hash`, or `null` when it leaves the app origin or its path matches none of `allowedPaths`. `authWrapper.ts` passes every guarded route pattern plus `LEGACY_PATHS`, so `/storage/...` files stay with `storageRedirect.ts` |
+
 ### `aiToolsAuthorization.ts`
 OAuth request of an AI tool (User MCP):
 
@@ -359,7 +367,7 @@ Login 2FA (sc-46832): the code is bound to the `mfa_token` that `/api/auth/login
 Branch on `code`, never on the message text. A 401 from these endpoints is not toasted by `handleError`, so show `message` explicitly.
 
 ### `authWrapper.ts`
-Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.).
+Route guards (`userIsAuthenticatedRedir`, `userRoleIsAdminRedir`, etc.). A signed-out user is sent to the login with `?redirect_to=` and returned there after sign-in (`loginRedirect.ts`).
 **Legacy file — do not modify.** See [routing.md](routing.md) for usage context.
 
 ### `componentsWrappers.tsx`
