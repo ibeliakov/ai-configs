@@ -16,12 +16,15 @@ const ROUTER_ITEMS = {
     { path: '/company-list', component: CompanyList },
     // ...
   ],
+  [USER_IS_ANY]: [
+    // ...
+  ],
 };
 
 export default ROUTER_ITEMS;
 ```
 
-`Router.js` reads `ROUTER_ITEMS` and wraps each component with the appropriate auth HOC from `helpers/authWrapper.js`.
+`Router.js` reads `ROUTER_ITEMS` and wraps each component with the appropriate auth HOC from `helpers/authWrapper.js`; a `USER_IS_ANY` component is rendered as is.
 
 ## Permission levels
 
@@ -29,14 +32,17 @@ export default ROUTER_ITEMS;
 |----------|----------------|
 | `USER_IS_NOT_AUTH` | Only unauthenticated users (login, verification pages) |
 | `USER_IS_AUTH` | Any authenticated user |
+| `USER_IS_ANY` | Everyone, signed in or not: the route renders without an auth wrapper and never redirects. Used by `/connect-claude` (`PATH_CONNECT_CLAUDE`, sc-47613) |
 
-Both constants are imported from `constants/index`.
+All three constants are imported from `constants/index`.
+
+A `USER_IS_ANY` page handles both states itself. `views/App/AppComponent.tsx` reloads the page when another tab signs in or out, except on `PATH_CONNECT_CLAUDE`; a new `USER_IS_ANY` page that must keep its state through such a change needs the same exception.
 
 ## Adding a new route
 
 **Before writing any code, confirm with the user:**
 
-1. **Permission level** — `USER_IS_AUTH` or `USER_IS_NOT_AUTH`?
+1. **Permission level** — `USER_IS_AUTH`, `USER_IS_NOT_AUTH` or `USER_IS_ANY`? `USER_IS_ANY` only for a page that must open both with and without a session.
 
 Once confirmed:
 
