@@ -256,6 +256,20 @@ Miscellaneous utility functions.
 
 Password generation utility.
 
+### `helpers/singleFlight.ts`
+
+`singleFlight(slot, task)` keeps one request in flight per slot (a `useRef<Promise<T> | null>(null)` or any `{ current }` object). While `slot.current` holds a promise, it returns that promise and does not call `task`, so a double click or a repeated submit sends one request. Otherwise it starts `task()` and stores its promise in the slot. The slot is cleared when that promise resolves or rejects, so the next call starts a new request.
+
+```typescript
+import { singleFlight } from 'helpers/singleFlight';
+
+const requestRef = useRef<Promise<void> | null>(null);
+
+const onSubmit = (values: Values) => singleFlight(requestRef, () => saveItem(values));
+```
+
+To let the next call start at once (for example when the user leaves a step), set `slot.current = null`. The older request is not cancelled; when it settles, it does not clear a newer promise in the slot. Ignoring the older response is the caller's job: `views/ConnectClaude/hooks/useConnectClaude.ts` checks a step version before it applies one. Use this helper instead of writing an in-flight ref check in a component or hook.
+
 ---
 
 ## Hooks (`src/hooks/`)
