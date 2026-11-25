@@ -22,6 +22,8 @@ const response = await ClientApi.get<ApiResponse<Item[]>>('/api/management/items
 const response = await ClientApi.post('/api/management/items', body);
 ```
 
+Requests to `/api/auth/login` and `/api/auth/login/pin/request` (exact `config.url`) and every request that carries the `MGMT_MCP_REQUEST_HEADER` header (`constants/mgmtMcp.ts`) always go with `Authorization: API_KEY`, even with a session, and are marked `_apiKeyAuth`. A 419 on a marked request is rejected with the original error: no token refresh, no retry, no `forceLogout`. Pass these paths as `url` exactly as written: a full URL or a query string inside `url` does not match.
+
 ### `helpers/forActions.ts`
 
 Error handling helpers — same API as THT-myAccount `helpers/forActions.ts`:
@@ -66,6 +68,61 @@ Login 2FA (sc-46832), same API as THT-myAccount `helpers/loginMfa.ts`: the code 
 | `getResendDelay(sendCount)` | Seconds before the next *Send again*, by the number of codes already sent (the first one comes from `/login`): 30, 30, then 300 |
 | `MAX_PIN_SENDS` | 5 codes per sign-in |
 | `LOGIN_MFA_ERROR` | The backend codes: `INVALID_PIN`, `LOGIN_PAUSED`, `MFA_TOKEN_INVALID`, `PIN_RESEND_COOLDOWN` |
+
+---
+
+## Connect Claude (Management MCP handoff)
+
+The `/connect-claude` page (sc-47613) signs a user in on behalf of the Claude Desktop extension. The extension opens the app with `?mgmt_mcp_request=<handle>`; the handle goes back to the backend in a header on the login requests, and the backend answers with the loopback callback URL of the extension.
+
+The handle, the `mfa_token` and the callback URL never go into redux, `console.*`, thrown error messages or test snapshots. Never log an axios error of these requests: its `config.headers` holds the handle.
+
+### `constants/mgmtMcp.ts`
+
+| Export | Purpose |
+|--------|---------|
+| `MGMT_MCP_REQUEST_HEADER` | `X-Management-Mcp-Request` — the header that carries the handle. `ClientApi` sends every request with it under `API_KEY` and does not refresh the session on its 419 |
+
+### `helpers/mgmtMcpHandoff.ts`
+
+The handle arrives in the query of the first URL (`?mgmt_mcp_request=…`). Before the first render `captureMgmtMcpRequest` reads it, tries to store a valid handle as `pending` in tab storage (`sessionStorage`; a blocked storage keeps nothing), then replaces the URL with `PATH_CONNECT_CLAUDE` without the query. `sessionStorage` is the only place on the client where the handle is kept: never put it back into a URL, redux or another storage. It still leaves the page in the `MGMT_MCP_REQUEST_HEADER` header of `postMgmtMcpLogin` and `postMgmtMcpPinVerify`, so the axios error of those requests carries it in `config.headers`.
+
+| Export | Purpose |
+|--------|---------|
+| `MGMT_MCP_REQUEST_PARAM` | `mgmt_mcp_request` — the query parameter the extension opens the app with |
+| `MGMT_MCP_HANDOFF_STORAGE_KEY` | `mgmt_mcp_handoff` — the `sessionStorage` key |
+| `MgmtMcpHandoff` | `{ kind: 'pending'; handle }`, `{ kind: 'invalid' }` or `{ kind: 'handed-off' }` |
+| `captureMgmtMcpRequest(location?, history?)` | Called once in `src/index.tsx` before the first render. When the URL has `mgmt_mcp_request`, stores `pending` (exactly one value that matches `mgmtMcpRequestRegexp`) or `invalid` (a repeated or malformed value), replaces the URL with `PATH_CONNECT_CLAUDE` (the whole query is dropped) and returns `true`; without the parameter it changes nothing and returns `false` |
+| `readMgmtMcpHandoff()` | The stored state, or `null` when nothing valid is stored or storage is unavailable |
+| `markMgmtMcpHandedOff()` | Tries to replace the stored state with `handed-off`, which forgets the handle |
+| `clearMgmtMcpHandoff()` | Tries to remove the stored state |
+
+Storage errors are swallowed. A failed read returns `null`; a failed write or removal does nothing, so the previously stored state, a `pending` handle included, stays readable.
+
+### `helpers/mgmtMcpCallback.ts`
+
+How a login response ends the handoff.
+
+| Export | Purpose |
+|--------|---------|
+| `resolveMgmtMcpCompletion(response)` | `MgmtMcpCompletion` from a `/api/auth/login` or `/api/auth/login/pin/verify` body. A non-null `management_mcp_error` wins: `fresh_sign_in_required` → `{ type: 'fresh-sign-in' }`, a known code → `{ type: 'failed', kind }`, any other value → `generic`. Otherwise `management_mcp_redirect` that `parseMgmtMcpCallbackUrl` accepts → `{ type: 'redirect', url }`, a `null` or rejected one → `generic`, a missing key (or no body) → `not-completed` |
+| `parseMgmtMcpCallbackUrl(raw)` | `raw` unchanged when it is an `http://127.0.0.1:<1024–65535>/oauth/callback` URL whose query has `code` and `state`, each exactly once with a non-empty value, in either order, and no other parameter; it must also be already in normalized form, with an explicit port, no credentials and no `#`. `null` otherwise, also for a non-string |
+| `openMgmtMcpCallback(url)` | `window.location.assign(url)` — the only way to open the callback. Mock it in tests: jsdom does not navigate |
+| `MgmtMcpFailureKind` | `invalid-link`, `expired`, `network`, `revoked`, `not-enabled`, `generic`, `not-completed` |
+| `MgmtMcpCompletion` | `{ type: 'redirect'; url }`, `{ type: 'fresh-sign-in' }` or `{ type: 'failed'; kind }` |
+
+Backend codes map to kinds: `invalid_grant` → `expired`, `invalid_request` → `invalid-link`, `network_not_allowed` → `network`, `access_revoked` and `invalid_token` → `revoked`, `mcp_not_ready` → `not-enabled`. Branch on `type` and `kind`, never on the backend code.
+
+### `helpers/api/mgmtMcpLogin.ts`
+
+The sign-in requests of the Connect Claude page. `postMgmtMcpLogin` and `postMgmtMcpPinVerify` resolve to the response body; `postMgmtMcpPinResend` resolves to `void`. None of them stores the response: no session is started and nothing from it goes into redux (the build-timestamp dispatch of `ClientApi` on a successful response still runs, as for every request). Errors reject with the axios error; read them with `getErrorMessage` / `parseLoginMfaError`.
+
+| Export | Purpose |
+|--------|---------|
+| `postMgmtMcpLogin(handle, { email, password })` | `POST /api/auth/login` with `logon_platform: LOGON_PLATFORM` and the handle in `MGMT_MCP_REQUEST_HEADER` |
+| `postMgmtMcpPinVerify(handle, mfaToken, pin)` | `POST /api/auth/login/pin/verify` with the handle in `MGMT_MCP_REQUEST_HEADER` |
+| `postMgmtMcpPinResend(mfaToken)` | `POST /api/auth/login/pin/request` without the handle; `ClientApi` uses `API_KEY` for it by URL. Resolves to `void`: the body is not returned |
+| `MgmtMcpLoginResponse` | `verify`, `verification_method`, `last_phone_digits`, `mfa_token`, plus `management_mcp_redirect` and `management_mcp_error` typed `unknown`: read those two only through `resolveMgmtMcpCompletion` |
 
 ---
 
@@ -128,6 +185,7 @@ All project regex patterns — import from here, do not duplicate:
 | `dateOnlyRegexp` | `YYYY-MM-DD` without time |
 | `dateTimeWithOffsetRegexp` | Date-time that ends with `Z` or a `±hh:mm` offset |
 | `timeWithoutSecondsRegexp` | `H:mm` / `HH:mm` |
+| `mgmtMcpRequestRegexp` | Connect Claude request handle: exactly 43 characters of `A-Z`, `a-z`, `0-9`, `_`, `-` |
 
 When you need a regex — check `regexp.ts` first. If it doesn't exist, add it there.
 
@@ -197,6 +255,20 @@ Miscellaneous utility functions.
 ### `helpers/generatePassword.ts`
 
 Password generation utility.
+
+### `helpers/singleFlight.ts`
+
+`singleFlight(slot, task)` keeps one request in flight per slot (a `useRef<Promise<T> | null>(null)` or any `{ current }` object). While `slot.current` holds a promise, it returns that promise and does not call `task`, so a double click or a repeated submit sends one request. Otherwise it starts `task()` and stores its promise in the slot. The slot is cleared when that promise resolves or rejects, so the next call starts a new request.
+
+```typescript
+import { singleFlight } from 'helpers/singleFlight';
+
+const requestRef = useRef<Promise<void> | null>(null);
+
+const onSubmit = (values: Values) => singleFlight(requestRef, () => saveItem(values));
+```
+
+To let the next call start at once (for example when the user leaves a step), set `slot.current = null`. The older request is not cancelled; when it settles, it does not clear a newer promise in the slot. Ignoring the older response is the caller's job: `views/ConnectClaude/hooks/useConnectClaude.ts` checks a step version before it applies one. Use this helper instead of writing an in-flight ref check in a component or hook.
 
 ---
 

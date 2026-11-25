@@ -16,12 +16,15 @@ const ROUTER_ITEMS = {
     { path: '/company-list', component: CompanyList },
     // ...
   ],
+  [USER_IS_ANY]: [
+    { path: '/connect-claude', component: ConnectClaude },
+  ],
 };
 
 export default ROUTER_ITEMS;
 ```
 
-`Router.js` reads `ROUTER_ITEMS` and wraps each component with the appropriate auth HOC from `helpers/authWrapper.js`.
+`Router.js` reads `ROUTER_ITEMS` and wraps each component with the appropriate auth HOC from `helpers/authWrapper.js`; a `USER_IS_ANY` component is rendered as is.
 
 ## Permission levels
 
@@ -29,14 +32,17 @@ export default ROUTER_ITEMS;
 |----------|----------------|
 | `USER_IS_NOT_AUTH` | Only unauthenticated users (login, verification pages) |
 | `USER_IS_AUTH` | Any authenticated user |
+| `USER_IS_ANY` | Everyone, signed in or not: the route renders without an auth wrapper and never redirects. Used by `/connect-claude` (`PATH_CONNECT_CLAUDE`, sc-47613) |
 
-Both constants are imported from `constants/index`.
+All three constants are imported from `constants/index`.
+
+A `USER_IS_ANY` page handles both states itself. `views/App/AppComponent.tsx` schedules the proactive token refresh (`tokenManager.scheduleProactiveRefresh()`) on mount and reloads the page when another tab signs in or out, except on `PATH_CONNECT_CLAUDE`; a new `USER_IS_ANY` page that must leave the stored tokens untouched or keep its state through such a change needs the same exceptions.
 
 ## Adding a new route
 
 **Before writing any code, confirm with the user:**
 
-1. **Permission level** — `USER_IS_AUTH` or `USER_IS_NOT_AUTH`?
+1. **Permission level** — `USER_IS_AUTH`, `USER_IS_NOT_AUTH` or `USER_IS_ANY`? `USER_IS_ANY` only for a page that must open both with and without a session.
 
 Once confirmed:
 
@@ -68,6 +74,21 @@ const ROUTER_ITEMS = {
 ```typescript
 // constants/urlPath.ts
 export const PATH_MY_NEW_PAGE = '/my-new-page';
+```
+
+A `USER_IS_ANY` route goes under its own key in `routeItems.js`, the way `/connect-claude` is registered:
+```javascript
+import ConnectClaude from './ConnectClaude';
+import { PATH_CONNECT_CLAUDE } from 'constants/urlPath';
+
+const ROUTER_ITEMS = {
+  [USER_IS_ANY]: [
+    {
+      path: PATH_CONNECT_CLAUDE,
+      component: ConnectClaude,
+    },
+  ],
+};
 ```
 
 ## Auth wrappers
