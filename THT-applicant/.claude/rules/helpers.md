@@ -210,6 +210,9 @@ String and text processing helpers. Check here before writing string manipulatio
 | `hasIndexableDescription(html)` | The backend rule for a job description: the plain text after `stripHtmlTags` is longer than 100 characters. Below that the job is left out of the career page, the sitemap and the job board feeds, and `JobDetailsHelmet` marks its page `noindex` without JSON-LD |
 | `getEmploymentTypeEnum(code)` | Employment type code → schema.org `employmentType` (`FULL_TIME`, …); `OTHER` for an unknown code, `undefined` for an empty one |
 | `getSalaryUnitText(interval)` | `compensation_interval` → JobPosting `baseSalary` `unitText`: `annually` → `YEAR`, `monthly` → `MONTH`, `weekly` → `WEEK`, `daily` → `DAY`, `hourly` → `HOUR`; `undefined` (the key is dropped from the JSON-LD) for an unknown or empty value |
+| `replaceEvery(text, search, replacement)` | Replaces every occurrence of a plain substring; the search text is not a pattern and the replacement is inserted as typed (`$&` and `$$` are not special) |
+
+Never call `String.prototype.replaceAll`: Chrome below 85 does not have it and Next.js does not polyfill it, so the call throws for those candidates (sc-48001: the question socket did not connect and per-question time was lost). ESLint blocks it with `no-restricted-properties`; use `replaceEvery`, or `replace` with a global pattern from `regexp.tsx`.
 
 ### `helpers/formated.ts`
 
