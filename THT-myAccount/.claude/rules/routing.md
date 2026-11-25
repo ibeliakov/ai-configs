@@ -108,6 +108,8 @@ The wrappers use `redux-auth-wrapper` (`connectedRouterRedirect`) to redirect us
 - Checks auth state from Redux
 - Checks user role
 - Checks billing permissions via `hasBillingPermission()`
+- Sends a signed-out user to the login page `/` with `?redirect_to=<requested path + query + hash>`; a signed-in user who fails the role or billing check goes to the dashboard without it
+- The login page's guard (`userIsNotAuthenticatedRedir`) sends a signed-in user to `redirect_to` when `getLoginRedirect` (`helpers/loginRedirect.ts`) accepts it — same origin, path matching a guarded route or `LEGACY_PATHS` — and to the dashboard otherwise. `finalizeLogon` reloads the page, so the parameter survives the password, code and popup sign-ins
 
 ## Pages vs Views
 
