@@ -250,8 +250,23 @@ Indeed sponsored-campaign display and the restart form (sc-45559):
 | `getIndeedReasonCopy(reason)` | Plain-language copy of a `non_spending_reasons` entry (`INDEED_REASON_COPY`), falls back to Indeed's description |
 | `getRedReasons(reasons)` / `getRestartableReason(reasons)` | Reasons that stop spending (`INDEED_RED_REASONS`) / the first one a restart fixes (`INDEED_RESTARTABLE_REASONS`, never a pause) |
 | `toIndeedRestartFormValues(values, type)` / `buildIndeedRestartBody(...)` / `getIndeedRestartEndDateKey(values)` | `restart-defaults` → form values → `POST …/campaign/restart` body; a target end date stays a target |
+| `getIndeedStoppedReasonType(stopped)` / `getIndeedStoppedReasonCopy(stopped)` | The reason to show for an `indeed_sponsorship_stopped` object (sc-47999): a restartable one first (`INDEED_STOPPED_REASON_PRIORITY`), then the account budget; copy is `null` for an unknown reason |
+| `isIndeedStoppedRestartable(stopped)` | Whether Restart can help; `false` when the only reason is `ACCOUNT_MONTHLY_BUDGET_HIT` |
+| `getIndeedStoppedFacts(stopped)` | `$200 monthly budget · Since Nov 12, 2026, no end date`, empty string without data |
 
 Any surface quoting an Indeed budget or duration renders `templates/IndeedDisclaimer` (`variant="compact"` in tight spots).
+
+The stopped state itself comes from the `indeedStoppedCampaigns` slice: `useStoppedIndeedCampaigns()` loads the company list for the global banner (once per company, again when marked stale or older than 10 minutes), `useIndeedSponsorshipStopped(jobId, fallback)` gives the state of one job — the loaded list wins, the job's own `indeed_sponsorship_stopped` field is the fallback. After a successful restart show the toast with `helpers/hooks/useIndeedRestartNotice`.
+
+### `indeedStoppedBanner.ts`
+Per-user close of the "Indeed sponsorship has stopped" banner, kept in `localStorage` under `indeed_sponsorship_stopped_dismissed:{userId}:{companyId}` (sc-47999):
+
+| Function | Purpose |
+|----------|---------|
+| `readIndeedStoppedBannerDismissal(userId, companyId)` | Stored `{ since }` or `null`; never throws when the storage is unavailable |
+| `saveIndeedStoppedBannerDismissal(userId, companyId, items)` | Stores the latest `since` of the items the user saw and returns it |
+| `isIndeedStoppedBannerDismissed(items, dismissal)` | `true` until an item with a later `since` appears |
+| `getLatestIndeedStoppedSince(items)` | Latest `since` of a list, `null` when none |
 
 ### `jobBoardRepublication.ts`
 Job-board republication after unpause (sc-43517):
