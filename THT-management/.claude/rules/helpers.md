@@ -85,7 +85,7 @@ The handle, the `mfa_token` and the callback URL never go into redux, `console.*
 
 ### `helpers/mgmtMcpHandoff.ts`
 
-The handle lives in tab storage (`sessionStorage`), never in the URL.
+The handle arrives in the query of the first URL (`?mgmt_mcp_request=…`). Before the first render `captureMgmtMcpRequest` reads it, replaces the URL with `PATH_CONNECT_CLAUDE` without the query, and keeps a valid handle as `pending` in tab storage (`sessionStorage`) when storage is available. From then on the handle is only in that storage: never put it back into a URL.
 
 | Export | Purpose |
 |--------|---------|
@@ -106,7 +106,7 @@ How a login response ends the handoff.
 | Export | Purpose |
 |--------|---------|
 | `resolveMgmtMcpCompletion(response)` | `MgmtMcpCompletion` from a `/api/auth/login` or `/api/auth/login/pin/verify` body. A non-null `management_mcp_error` wins: `fresh_sign_in_required` → `{ type: 'fresh-sign-in' }`, a known code → `{ type: 'failed', kind }`, any other value → `generic`. Otherwise `management_mcp_redirect` that `parseMgmtMcpCallbackUrl` accepts → `{ type: 'redirect', url }`, a `null` or rejected one → `generic`, a missing key (or no body) → `not-completed` |
-| `parseMgmtMcpCallbackUrl(raw)` | `raw` unchanged when it is exactly `http://127.0.0.1:<1024–65535>/oauth/callback?code=…&state=…`: already in normalized form, an explicit port, one non-empty `code` and one non-empty `state` and no other parameter, no credentials, no `#`. `null` otherwise |
+| `parseMgmtMcpCallbackUrl(raw)` | `raw` unchanged when it is an `http://127.0.0.1:<1024–65535>/oauth/callback` URL whose query has `code` and `state`, each exactly once with a non-empty value, in either order, and no other parameter; it must also be already in normalized form, with an explicit port, no credentials and no `#`. `null` otherwise, also for a non-string |
 | `openMgmtMcpCallback(url)` | `window.location.assign(url)` — the only way to open the callback. Mock it in tests: jsdom does not navigate |
 | `MgmtMcpFailureKind` | `invalid-link`, `expired`, `network`, `revoked`, `not-enabled`, `generic`, `not-completed` |
 | `MgmtMcpCompletion` | `{ type: 'redirect'; url }`, `{ type: 'fresh-sign-in' }` or `{ type: 'failed'; kind }` |
@@ -115,13 +115,13 @@ Backend codes map to kinds: `invalid_grant` → `expired`, `invalid_request` →
 
 ### `helpers/api/mgmtMcpLogin.ts`
 
-The sign-in requests of the Connect Claude page. They return the response body and store nothing: no session, no redux. Errors reject with the axios error; read them with `getErrorMessage` / `parseLoginMfaError`.
+The sign-in requests of the Connect Claude page. `postMgmtMcpLogin` and `postMgmtMcpPinVerify` resolve to the response body; `postMgmtMcpPinResend` resolves to `void`. None of them stores anything: no session, no redux. Errors reject with the axios error; read them with `getErrorMessage` / `parseLoginMfaError`.
 
 | Export | Purpose |
 |--------|---------|
 | `postMgmtMcpLogin(handle, { email, password })` | `POST /api/auth/login` with `logon_platform: LOGON_PLATFORM` and the handle in `MGMT_MCP_REQUEST_HEADER` |
 | `postMgmtMcpPinVerify(handle, mfaToken, pin)` | `POST /api/auth/login/pin/verify` with the handle in `MGMT_MCP_REQUEST_HEADER` |
-| `postMgmtMcpPinResend(mfaToken)` | `POST /api/auth/login/pin/request` without the handle; `ClientApi` uses `API_KEY` for it by URL |
+| `postMgmtMcpPinResend(mfaToken)` | `POST /api/auth/login/pin/request` without the handle; `ClientApi` uses `API_KEY` for it by URL. Resolves to `void`: the body is not returned |
 | `MgmtMcpLoginResponse` | `verify`, `verification_method`, `last_phone_digits`, `mfa_token`, plus `management_mcp_redirect` and `management_mcp_error` typed `unknown`: read those two only through `resolveMgmtMcpCompletion` |
 
 ---

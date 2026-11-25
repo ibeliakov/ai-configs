@@ -17,7 +17,7 @@ const ROUTER_ITEMS = {
     // ...
   ],
   [USER_IS_ANY]: [
-    // ...
+    { path: '/connect-claude', component: ConnectClaude },
   ],
 };
 
@@ -74,6 +74,21 @@ const ROUTER_ITEMS = {
 ```typescript
 // constants/urlPath.ts
 export const PATH_MY_NEW_PAGE = '/my-new-page';
+```
+
+A `USER_IS_ANY` route goes under its own key in `routeItems.js`, the way `/connect-claude` is registered:
+```javascript
+import ConnectClaude from './ConnectClaude';
+import { PATH_CONNECT_CLAUDE } from 'constants/urlPath';
+
+const ROUTER_ITEMS = {
+  [USER_IS_ANY]: [
+    {
+      path: PATH_CONNECT_CLAUDE,
+      component: ConnectClaude,
+    },
+  ],
+};
 ```
 
 ## Auth wrappers
