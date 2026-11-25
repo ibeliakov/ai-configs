@@ -85,7 +85,7 @@ The handle, the `mfa_token` and the callback URL never go into redux, `console.*
 
 ### `helpers/mgmtMcpHandoff.ts`
 
-The handle arrives in the query of the first URL (`?mgmt_mcp_request=…`). Before the first render `captureMgmtMcpRequest` reads it, replaces the URL with `PATH_CONNECT_CLAUDE` without the query, and keeps a valid handle as `pending` in tab storage (`sessionStorage`) when storage is available. From then on the handle is only in that storage: never put it back into a URL.
+The handle arrives in the query of the first URL (`?mgmt_mcp_request=…`). Before the first render `captureMgmtMcpRequest` reads it, tries to store a valid handle as `pending` in tab storage (`sessionStorage`; a blocked storage keeps nothing), then replaces the URL with `PATH_CONNECT_CLAUDE` without the query. `sessionStorage` is the only place on the client where the handle is kept: never put it back into a URL, redux or another storage. It still leaves the page in the `MGMT_MCP_REQUEST_HEADER` header of `postMgmtMcpLogin` and `postMgmtMcpPinVerify`, so the axios error of those requests carries it in `config.headers`.
 
 | Export | Purpose |
 |--------|---------|
