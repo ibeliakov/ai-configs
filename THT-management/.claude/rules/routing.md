@@ -36,7 +36,7 @@ export default ROUTER_ITEMS;
 
 All three constants are imported from `constants/index`.
 
-A `USER_IS_ANY` page handles both states itself. `views/App/AppComponent.tsx` reloads the page when another tab signs in or out, except on `PATH_CONNECT_CLAUDE`; a new `USER_IS_ANY` page that must keep its state through such a change needs the same exception.
+A `USER_IS_ANY` page handles both states itself. `views/App/AppComponent.tsx` schedules the proactive token refresh (`tokenManager.scheduleProactiveRefresh()`) on mount and reloads the page when another tab signs in or out, except on `PATH_CONNECT_CLAUDE`; a new `USER_IS_ANY` page that must leave the stored tokens untouched or keep its state through such a change needs the same exceptions.
 
 ## Adding a new route
 
