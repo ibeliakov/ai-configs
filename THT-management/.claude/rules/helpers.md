@@ -94,10 +94,10 @@ The handle arrives in the query of the first URL (`?mgmt_mcp_request=…`). Befo
 | `MgmtMcpHandoff` | `{ kind: 'pending'; handle }`, `{ kind: 'invalid' }` or `{ kind: 'handed-off' }` |
 | `captureMgmtMcpRequest(location?, history?)` | Called once in `src/index.tsx` before the first render. When the URL has `mgmt_mcp_request`, stores `pending` (exactly one value that matches `mgmtMcpRequestRegexp`) or `invalid` (a repeated or malformed value), replaces the URL with `PATH_CONNECT_CLAUDE` (the whole query is dropped) and returns `true`; without the parameter it changes nothing and returns `false` |
 | `readMgmtMcpHandoff()` | The stored state, or `null` when nothing valid is stored or storage is unavailable |
-| `markMgmtMcpHandedOff()` | Replaces the stored state with `handed-off`, which forgets the handle |
-| `clearMgmtMcpHandoff()` | Removes the stored state |
+| `markMgmtMcpHandedOff()` | Tries to replace the stored state with `handed-off`, which forgets the handle |
+| `clearMgmtMcpHandoff()` | Tries to remove the stored state |
 
-Storage errors are swallowed: a blocked `sessionStorage` reads as `null`.
+Storage errors are swallowed. A failed read returns `null`; a failed write or removal does nothing, so the previously stored state, a `pending` handle included, stays readable.
 
 ### `helpers/mgmtMcpCallback.ts`
 
@@ -115,7 +115,7 @@ Backend codes map to kinds: `invalid_grant` → `expired`, `invalid_request` →
 
 ### `helpers/api/mgmtMcpLogin.ts`
 
-The sign-in requests of the Connect Claude page. `postMgmtMcpLogin` and `postMgmtMcpPinVerify` resolve to the response body; `postMgmtMcpPinResend` resolves to `void`. None of them stores anything: no session, no redux. Errors reject with the axios error; read them with `getErrorMessage` / `parseLoginMfaError`.
+The sign-in requests of the Connect Claude page. `postMgmtMcpLogin` and `postMgmtMcpPinVerify` resolve to the response body; `postMgmtMcpPinResend` resolves to `void`. None of them stores the response: no session is started and nothing from it goes into redux (the build-timestamp dispatch of `ClientApi` on a successful response still runs, as for every request). Errors reject with the axios error; read them with `getErrorMessage` / `parseLoginMfaError`.
 
 | Export | Purpose |
 |--------|---------|
